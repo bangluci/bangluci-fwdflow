@@ -1,0 +1,43 @@
+# Hạ tầng dev: api (uvicorn :8000) và web (next dev :3000) chạy trên host, Caddy gom về http://localhost:8088.
+# Mọi cổng chỉ bind 127.0.0.1.
+services:
+  db:
+    image: pgvector/pgvector:0.8.1-pg17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fwdflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fwdflow_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-fwdflow}
+      TZ: UTC
+    ports:
+      - "127.0.0.1:15433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fwdflow} -d ${POSTGRES_DB:-fwdflow}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
+
+  caddy:
+    image: caddy:2.10-alpine
+    environment:
+      SITE_ADDRESS: ":8088"
+      API_UPSTREAM: host.docker.internal:8000
+      WEB_UPSTREAM: host.docker.internal:3000
+      CSP_SCRIPT_EXTRA: "'unsafe-eval'"  # next dev cần eval; prod để trống
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8088:8088"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+
+volumes:
+  pgdata:
