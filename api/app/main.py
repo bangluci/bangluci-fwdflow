@@ -9,6 +9,8 @@ from app.catalog.router import router as catalog_router
 from app.config import get_settings
 from app.db import get_db
 from app.envelope import install_handlers, ok
+from app.shipments.containers_router import router as containers_router
+from app.shipments.router import router as shipments_router
 
 health_router = APIRouter()
 
@@ -19,7 +21,7 @@ def health(db: Session = Depends(get_db)) -> dict:
     return ok({"status": "ok", "db": "ok"})
 
 
-ROUTERS = [health_router, auth_router, audit_router, catalog_router]
+ROUTERS = [health_router, auth_router, audit_router, catalog_router, shipments_router, containers_router]
 
 
 def create_app() -> FastAPI:
