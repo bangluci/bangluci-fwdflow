@@ -1,14 +1,15 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.auth.deps import require
 from app.auth.models import User
 from app.auth.scope import get_scoped_or_404
 from app.db import get_db
-from app.envelope import ok
+from app.documents.storage import StoredFile, save_photo
+from app.envelope import AppError, ok
 from app.freetime.schemas import LevelName
 from app.shipments import lines, service
 from app.shipments.audit_fields import DECLARATION_FIELDS, ITEM_FIELDS
@@ -27,6 +28,7 @@ router = APIRouter(tags=["shipments"])
 Db = Annotated[Session, Depends(get_db)]
 Reader = Annotated[User, Depends(require("shipment.read"))]
 Writer = Annotated[User, Depends(require("shipment.write"))]
+Mover = Annotated[User, Depends(require("transport.write"))]
 
 
 def _row(obj, fields: tuple[str, ...]) -> dict:
@@ -128,3 +130,32 @@ def delete_declaration(shipment_id: int, decl_id: int, db: Db, user: Writer) -> 
     db.commit()
     return ok()
 
+
+
+def _evidence_photo(photo: UploadFile | None) -> StoredFile:
+    if photo is None or photo.size == 0:
+        raise AppError("EVIDENCE_REQUIRED", "Cần ảnh làm bằng chứng", 400, details={"missing": ["photo"]})
+    return save_photo(photo)
+
+
+@router.post("/shipments/{shipment_id}/receive-at-warehouse")
+def receive_at_warehouse(shipment_id: int, db: Db, user: Mover, photo: Annotated[UploadFile | None, File()] = None,
+                         note: Annotated[str | None, Form()] = None) -> dict:
+    """Nhận hàng LCL về kho: cần ảnh phiếu xuất kho CFS."""
+    stored = _evidence_photo(photo)
+    shipment = service.receive_lcl_at_warehouse(db, shipment_id, stored.sha256, (note or "").strip() or None, user)
+    db.commit()
+    return ok(shipment_detail(db, shipment))
+
+
+@router.post("/shipments/{shipment_id}/close")
+def close_shipment(shipment_id: int, db: Db, user: Mover, reason: Annotated[str, Form()],
+                   photo: Annotated[UploadFile | None, File()] = None) -> dict:
+    """Đóng lô giao qua kho: lý do 5–500 ký tự và ảnh biên bản."""
+    reason = reason.strip()
+    if not 5 <= len(reason) <= 500:
+        raise AppError("VALIDATION_ERROR", "Lý do phải từ 5 đến 500 ký tự", 422)
+    stored = _evidence_photo(photo)
+    shipment = service.close_shipment(db, shipment_id, reason, stored.sha256, user)
+    db.commit()
+    return ok(shipment_detail(db, shipment))

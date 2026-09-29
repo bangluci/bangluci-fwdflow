@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.models import Role, User
 from app.envelope import AppError
+from app.lastmile.models import LastMileOrder
 from app.shipments.models import Container, Shipment
 from app.trucking.models import TruckingOrder
 
@@ -38,4 +39,14 @@ def scope_trucking(stmt: Select, user: User) -> Select:
     if user.role == Role.CUSTOMER:
         own = select(Shipment.id).where(Shipment.customer_id == user.customer_id)
         return stmt.where(TruckingOrder.shipment_id.in_(own))
+    return stmt
+
+
+def scope_last_mile(stmt: Select, user: User) -> Select:
+    """Đơn giao: tài xế chỉ thấy đơn của mình, khách chỉ thấy đơn thuộc lô của mình, nội bộ thấy hết."""
+    if user.role == Role.DRIVER:
+        return stmt.where(LastMileOrder.driver_id == user.driver_id) if user.driver_id else stmt.where(false())
+    if user.role == Role.CUSTOMER:
+        own = select(Shipment.id).where(Shipment.customer_id == user.customer_id)
+        return stmt.where(LastMileOrder.shipment_id.in_(own))
     return stmt

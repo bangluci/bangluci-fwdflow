@@ -5,7 +5,7 @@ Các hàm không commit; route commit sau khi ghi audit cùng transaction.
 
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.ai.extraction.discrepancies import unresolved_blocking_keys
@@ -83,10 +83,11 @@ def _check_staff(db: Session, staff_id: int) -> None:
 
 
 def record_transition(db: Session, shipment: Shipment, to_status: str, actor_id: int | None,
-                      from_status: str | None = None, reason: str | None = None) -> ShipmentEvent:
+                      from_status: str | None = None, reason: str | None = None,
+                      photo_sha256: str | None = None) -> ShipmentEvent:
     """Ghi event TRANSITION và cập nhật cột cache `status` (actor null = hệ thống)."""
     event = ShipmentEvent(shipment_id=shipment.id, kind="TRANSITION", from_status=from_status, to_status=to_status,
-                          occurred_at=utcnow(), actor_id=actor_id, reason=reason)
+                          occurred_at=utcnow(), actor_id=actor_id, reason=reason, photo_sha256=photo_sha256)
     db.add(event)
     shipment.status = to_status
     db.flush()
@@ -196,68 +197,6 @@ def _cancel_trucking_orders(db: Session, shipment: Shipment, reason: str, actor:
         cancel_order(db, actor, order_id, f"Lô huỷ: {reason}")
 
 
-# Cạnh tự động: trạng thái hiện tại → các trạng thái kế tiếp mà hệ thống được tự chuyển tới
-AUTO_EDGES = {
-    ShipmentStatus.CLEARED: (ShipmentStatus.AT_WAREHOUSE,),
-    ShipmentStatus.AT_WAREHOUSE: (ShipmentStatus.COMPLETED,),
-}
-
-AUTO_TARGETS = frozenset(t for targets in AUTO_EDGES.values() for t in targets)
-_PICKUPS_DONE = ("SELECT count(DISTINCT container_id) FROM trucking_orders WHERE shipment_id = :shipment_id "
-                 "AND kind = 'PICKUP_FULL' AND status = 'COMPLETED'")
-_EMPTIES_RETURNED = ("SELECT count(*) FROM effective_container_milestones m JOIN containers c ON c.id = m.container_id "
-                     "WHERE c.shipment_id = :shipment_id AND m.kind = 'EMPTY_RETURNED'")
-
-
-def _all_containers_have(db: Session, shipment: Shipment, count_sql: str) -> bool:
-    total = db.scalar(select(func.count()).select_from(Container).where(Container.shipment_id == shipment.id))
-    return bool(total) and total == db.scalar(text(count_sql), {"shipment_id": shipment.id})
-
-
-def auto_condition_holds(db: Session, shipment: Shipment, to_status: str) -> bool:
-    """Điều kiện để hệ thống tự đưa lô tới `to_status` (dùng chung cho chuyển tới và đảo lại khi huỷ event)."""
-    if to_status == ShipmentStatus.AT_WAREHOUSE:
-        return shipment.load_type == "FCL" and _all_containers_have(db, shipment, _PICKUPS_DONE)
-    if to_status == ShipmentStatus.COMPLETED:
-        return shipment.delivery_mode == "CONTAINER_TO_DOOR" and _all_containers_have(db, shipment, _EMPTIES_RETURNED)
-    return False
-
-
-def _auto_reason(shipment: Shipment, to_status: str) -> str:
-    if to_status == ShipmentStatus.AT_WAREHOUSE:
-        return "Tự chuyển: mọi container đã tới kho đích"
-    return "Tự chuyển: mọi container đã trả rỗng"
-
-
-def try_auto_advance(db: Session, shipment: Shipment) -> bool:
-    """Tự chuyển trạng thái lô tới khi hết cạnh hợp lệ; gọi sau mỗi thay đổi lệnh xe / container (lô đã bị khoá)."""
-    moved = False
-    while True:
-        target = next((t for t in AUTO_EDGES.get(shipment.status, ()) if auto_condition_holds(db, shipment, t)), None)
-        if target is None:
-            return moved
-        record_transition(db, shipment, target, None, from_status=shipment.status,
-                          reason=_auto_reason(shipment, target))
-        moved = True
-
-
-def revert_auto_advance(db: Session, shipment: Shipment) -> None:
-    """Sau khi huỷ một event: đảo các bước tự chuyển (actor null) không còn đủ điều kiện, dừng ở bước do người làm."""
-    while True:
-        events = db.scalars(select(ShipmentEvent).where(ShipmentEvent.shipment_id == shipment.id)).all()
-        live = [e for e in effective_events(events) if e.kind == "TRANSITION"]
-        if not live:
-            return
-        latest = next(e for e in events if e.id == live[-1].id)
-        if (latest.actor_id is not None or latest.to_status not in AUTO_TARGETS
-                or auto_condition_holds(db, shipment, latest.to_status)):
-            return
-        db.add(ShipmentEvent(shipment_id=shipment.id, kind="VOID", adjusts_event_id=latest.id, occurred_at=utcnow(),
-                             actor_id=None, reason=f"Đảo do huỷ event #{latest.id}"))
-        shipment.status = latest.from_status
-        db.flush()
-
-
 def cancel_shipment(db: Session, shipment_id: int, reason: str, actor: User) -> Shipment:
     shipment = lock_shipment(db, shipment_id)
     if shipment.status in (ShipmentStatus.COMPLETED, ShipmentStatus.CANCELLED):
@@ -271,4 +210,44 @@ def cancel_shipment(db: Session, shipment_id: int, reason: str, actor: User) -> 
     record_transition(db, shipment, ShipmentStatus.CANCELLED, actor.id, from_status=from_status, reason=reason)
     record_audit(db, actor.id, "CANCEL", "shipment", shipment.id, before={"status": from_status},
                  after={"status": ShipmentStatus.CANCELLED})
+    return shipment
+
+
+def receive_lcl_at_warehouse(db: Session, shipment_id: int, photo_sha256: str, note: str | None,
+                             actor: User) -> Shipment:
+    """Hàng LCL đã lấy khỏi kho CFS về kho công ty: người dùng bấm tay, kèm ảnh phiếu xuất kho CFS."""
+    shipment = lock_shipment(db, shipment_id)
+    if shipment.load_type != "LCL":
+        raise AppError("NOT_LCL", "Chỉ lô LCL mới nhận hàng tại kho theo cách này", 409)
+    if shipment.status != ShipmentStatus.CLEARED:
+        raise AppError("INVALID_TRANSITION", "Chỉ nhận hàng về kho khi lô đã thông quan", 409)
+    record_transition(db, shipment, ShipmentStatus.AT_WAREHOUSE, actor.id, from_status=shipment.status,
+                      reason=note, photo_sha256=photo_sha256)
+    record_audit(db, actor.id, "TRANSITION", "shipment", shipment.id, before={"status": ShipmentStatus.CLEARED},
+                 after={"status": ShipmentStatus.AT_WAREHOUSE})
+    return shipment
+
+
+_UNFINISHED_ORDERS = ("SELECT count(*) FROM last_mile_orders WHERE shipment_id = :id "
+                      "AND status IN ('CREATED', 'ASSIGNED', 'PICKED_UP', 'FAILED')")
+_CONTAINERS_NOT_RETURNED = (
+    "SELECT count(*) FROM containers c WHERE c.shipment_id = :id AND NOT EXISTS ("
+    "SELECT 1 FROM effective_container_milestones m WHERE m.container_id = c.id AND m.kind = 'EMPTY_RETURNED')")
+
+
+def close_shipment(db: Session, shipment_id: int, reason: str, photo_sha256: str, actor: User) -> Shipment:
+    """Đóng lô giao qua kho khi không giao thêm được nữa (kể cả còn kiện chưa giao): lý do + ảnh biên bản."""
+    shipment = lock_shipment(db, shipment_id)
+    if shipment.delivery_mode != "VIA_WAREHOUSE" or shipment.status not in (
+            ShipmentStatus.AT_WAREHOUSE, ShipmentStatus.DELIVERING):
+        raise AppError("INVALID_TRANSITION", "Chỉ đóng lô giao qua kho khi đã về kho hoặc đang giao", 409)
+    if db.scalar(text(_UNFINISHED_ORDERS), {"id": shipment.id}):
+        raise AppError("UNFINISHED_ORDERS", "Còn đơn giao chưa hoàn tất, xử lý xong mới đóng lô được", 409)
+    if shipment.load_type == "FCL" and db.scalar(text(_CONTAINERS_NOT_RETURNED), {"id": shipment.id}):
+        raise AppError("CONTAINERS_NOT_RETURNED", "Còn container chưa trả vỏ rỗng", 409)
+    from_status = shipment.status
+    record_transition(db, shipment, ShipmentStatus.COMPLETED, actor.id, from_status=from_status, reason=reason,
+                      photo_sha256=photo_sha256)
+    record_audit(db, actor.id, "CLOSE", "shipment", shipment.id, before={"status": from_status},
+                 after={"status": ShipmentStatus.COMPLETED})
     return shipment

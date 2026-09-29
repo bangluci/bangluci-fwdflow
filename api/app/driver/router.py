@@ -8,12 +8,13 @@ from sqlalchemy.orm import Session
 
 from app.auth.deps import require
 from app.auth.models import User
-from app.auth.scope import scope_trucking
+from app.auth.scope import scope_last_mile, scope_trucking
 from app.db import get_db
 from app.driver import handlers  # noqa: F401  đăng ký HANDLERS
 from app.driver.actions import ACTION_LIST, requires_for
 from app.driver.process import parse_form, process_driver_action
 from app.envelope import ok
+from app.lastmile.models import LastMileOrder
 from app.shipments.models import Container, Shipment
 from app.shipments.state import ShipmentStatus
 from app.trucking.models import TruckingOrder
@@ -37,6 +38,15 @@ def _item(order: TruckingOrder, shipment: Shipment, container: Container) -> dic
             "delivery_mode": shipment.delivery_mode, "actions": actions}
 
 
+def _last_mile_item(order: LastMileOrder, shipment: Shipment) -> dict:
+    actions = [{"action": a.code, "label": a.label, "requires": requires_for(a, shipment)}
+               for a in ACTION_LIST if a.target == "LAST_MILE" and a.from_status == order.status]
+    return {"kind": "LAST_MILE", "id": order.id, "status": order.status, "planned_date": order.planned_date,
+            "tracking_code": order.tracking_code, "shipment_code": shipment.code,
+            "recipient_name": order.recipient_name, "recipient_phone": order.recipient_phone,
+            "address": order.address, "packages": order.packages, "weight_kg": order.weight_kg, "actions": actions}
+
+
 @router.get("/driver/tasks")
 def list_tasks(db: Db, user: DriverUser) -> dict:
     """Việc của tài xế: lệnh đã phân công cho hôm nay, cộng lệnh đang chạy dở bất kể ngày."""
@@ -48,7 +58,14 @@ def list_tasks(db: Db, user: DriverUser) -> dict:
                    or_(and_(TruckingOrder.status == "ASSIGNED", PLANNED_DAY_VN == today),
                        TruckingOrder.status == "STARTED"))
             .order_by(TruckingOrder.planned_at, TruckingOrder.id))
-    return ok([_item(*row) for row in db.execute(scope_trucking(stmt, user))])
+    items = [_item(*row) for row in db.execute(scope_trucking(stmt, user))]
+    deliveries = (select(LastMileOrder, Shipment).join(Shipment, Shipment.id == LastMileOrder.shipment_id)
+                  .where(Shipment.status != ShipmentStatus.CANCELLED,
+                         or_(and_(LastMileOrder.status == "ASSIGNED", LastMileOrder.planned_date == today),
+                             LastMileOrder.status == "PICKED_UP"))
+                  .order_by(LastMileOrder.planned_date, LastMileOrder.id))
+    items += [_last_mile_item(*row) for row in db.execute(scope_last_mile(deliveries, user))]
+    return ok(items)
 
 
 @router.post("/driver/actions")

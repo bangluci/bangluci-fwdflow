@@ -9,10 +9,21 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth.models import User
-from app.auth.scope import scope_trucking
+from app.auth.scope import scope_last_mile, scope_trucking
 from app.documents.storage import save_photo
-from app.driver.actions import ACTIONS, HANDLERS, PHOTO, REASON, SIGNER, DriverCall, DriverResult, requires_for
+from app.driver.actions import (
+    ACTIONS,
+    HANDLERS,
+    PHOTO,
+    REASON,
+    SIGNER,
+    DriverAction,
+    DriverCall,
+    DriverResult,
+    requires_for,
+)
 from app.envelope import AppError
+from app.lastmile.models import LastMileEvent, LastMileOrder
 from app.shipments.models import Shipment
 from app.shipments.service import lock_shipment
 from app.trucking.models import TruckingOrder, TruckingOrderEvent
@@ -89,15 +100,16 @@ Replay = tuple[str, int, int, str, datetime, int | None]
 
 def find_replay(db: Session, client_request_id: UUID) -> Replay | None:
     """Event đã ghi cho mã này: (loại đích, id đích, id event, trạng thái, giờ, actor_id)."""
-    event = db.scalar(select(TruckingOrderEvent).where(TruckingOrderEvent.client_request_id == client_request_id))
-    if event is None:
-        return None
-    return "TRUCKING", event.order_id, event.id, event.kind, event.occurred_at, event.actor_id
+    for target, model in (("TRUCKING", TruckingOrderEvent), ("LAST_MILE", LastMileEvent)):
+        event = db.scalar(select(model).where(model.client_request_id == client_request_id))
+        if event is not None:
+            return target, event.order_id, event.id, event.kind, event.occurred_at, event.actor_id
+    return None
 
 
 def _replayed(found: Replay, user: User, form: ActionForm) -> DriverResult:
     kind, target_id, event_id, status, occurred_at, actor_id = found
-    if actor_id != user.id or target_id != form.target_id:
+    if actor_id != user.id or target_id != form.target_id or kind != ACTIONS[form.action].target:
         raise AppError("DUPLICATE_REQUEST_ID", "Mã yêu cầu đã dùng cho thao tác khác", 409)
     return DriverResult(event_id, kind, target_id, status, occurred_at, replayed=True)
 
@@ -107,14 +119,21 @@ def _missing(required: list[str], form: ActionForm, has_photo: bool) -> list[str
     return [item for item in required if not have[item]]
 
 
+def _load_target(db: Session, user: User, action: DriverAction, target_id: int):
+    """Lệnh xe hoặc đơn giao của chính tài xế (không thuộc về mình coi như không tồn tại)."""
+    if action.target == "LAST_MILE":
+        return db.scalar(scope_last_mile(select(LastMileOrder).where(LastMileOrder.id == target_id), user))
+    return db.scalar(scope_trucking(select(TruckingOrder).where(TruckingOrder.id == target_id), user))
+
+
 def process_driver_action(db: Session, user: User, form: ActionForm, photo) -> DriverResult:
     if (found := find_replay(db, form.client_request_id)) is not None:
         return _replayed(found, user, form)
-    order = db.scalar(scope_trucking(select(TruckingOrder).where(TruckingOrder.id == form.target_id), user))
+    action = ACTIONS[form.action]
+    order = _load_target(db, user, action, form.target_id)
     if order is None:
         raise AppError("NOT_FOUND", "Không tìm thấy việc này", 404)
-    action = ACTIONS[form.action]
-    if action.order_kind != order.kind:
+    if action.target == "TRUCKING" and action.order_kind != order.kind:
         raise AppError("WRONG_ORDER_KIND", "Thao tác không dùng được cho loại lệnh này", 400)
     shipment: Shipment = lock_shipment(db, order.shipment_id)
     db.refresh(order)

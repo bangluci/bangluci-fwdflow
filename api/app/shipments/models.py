@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, FetchedValue, ForeignKey, Integer, Numeric, String
+from sqlalchemy import CHAR, BigInteger, Boolean, Date, DateTime, FetchedValue, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.events import EventMixin
@@ -83,6 +83,7 @@ class ShipmentEvent(EventMixin, Base):
     shipment_id: Mapped[int] = mapped_column(ForeignKey("shipments.id"))
     from_status: Mapped[str | None] = mapped_column(String)
     to_status: Mapped[str | None] = mapped_column(String)
+    photo_sha256: Mapped[str | None] = mapped_column(CHAR(64))  # ảnh phiếu CFS (nhận hàng LCL) / biên bản (đóng lô)
 
 
 class ContainerEvent(EventMixin, Base):

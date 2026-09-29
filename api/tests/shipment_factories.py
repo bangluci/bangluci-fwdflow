@@ -49,7 +49,7 @@ def make_shipment(db, make_user):
         path = ["CREATED", "CANCELLED"] if status == "CANCELLED" else MAIN_PATH[: MAIN_PATH.index(status) + 1]
         for previous, current in zip([None, *path], path, strict=False):
             db.add(ShipmentEvent(shipment_id=shipment.id, kind="TRANSITION", from_status=previous, to_status=current,
-                                 occurred_at=datetime.now(UTC)))
+                                 occurred_at=datetime.now(UTC), actor_id=shipment.staff_id))  # bước do người làm
         shipment.status = status
         db.flush()
         return shipment

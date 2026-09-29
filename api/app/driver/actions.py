@@ -17,11 +17,12 @@ PHOTO, SIGNER, REASON = "photo", "signer_name", "reason"
 class DriverAction:
     code: str
     label: str
-    order_kind: str
+    order_kind: str | None  # loại lệnh xe (PICKUP_FULL / RETURN_EMPTY); None với đơn giao
     from_status: str
     to_status: str
     required_evidence: frozenset[str] = frozenset()
     c2d_evidence: frozenset[str] = frozenset()  # cần thêm khi lô giao thẳng tới cửa (CONTAINER_TO_DOOR)
+    target: str = "TRUCKING"  # TRUCKING (lệnh xe) hoặc LAST_MILE (đơn giao)
 
 
 ACTION_LIST = (
@@ -30,6 +31,10 @@ ACTION_LIST = (
                  c2d_evidence=frozenset({PHOTO, SIGNER})),
     DriverAction("RETURN_START", "Đã nhận vỏ rỗng tại kho", "RETURN_EMPTY", "ASSIGNED", "STARTED"),
     DriverAction("RETURN_COMPLETE", "Đã trả vỏ rỗng", "RETURN_EMPTY", "STARTED", "COMPLETED", frozenset({PHOTO})),
+    DriverAction("LM_PICK_UP", "Đã lấy hàng", None, "ASSIGNED", "PICKED_UP", target="LAST_MILE"),
+    DriverAction("LM_DELIVER", "Đã giao", None, "PICKED_UP", "DELIVERED", frozenset({PHOTO}), target="LAST_MILE"),
+    DriverAction("LM_FAIL", "Giao không thành công", None, "PICKED_UP", "FAILED", frozenset({REASON}),
+                 target="LAST_MILE"),
 )
 ACTIONS: dict[str, DriverAction] = {a.code: a for a in ACTION_LIST}
 

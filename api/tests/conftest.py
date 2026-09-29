@@ -17,7 +17,7 @@ from app.db import get_db
 from app.main import app
 
 pytest_plugins = ["tests.shipment_factories", "tests.extraction_factories", "tests.freetime_factories",
-                  "tests.trucking_factories", "tests.driver_factories"]
+                  "tests.trucking_factories", "tests.driver_factories", "tests.lastmile_factories"]
 
 API_DIR = Path(__file__).resolve().parents[1]
 

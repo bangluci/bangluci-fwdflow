@@ -3,8 +3,8 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 
+from app.shipments.auto_advance import try_auto_advance
 from app.shipments.models import ContainerEvent, Shipment, ShipmentEvent
-from app.shipments.service import try_auto_advance
 from tests.driver_factories import discharged_at as _discharged_at
 from tests.driver_factories import jpeg
 

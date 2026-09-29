@@ -12,9 +12,10 @@ from app.catalog.models import Driver, Truck, Trucker
 from app.driver.actions import DriverCall, DriverResult, driver_event_fields
 from app.envelope import AppError
 from app.events import effective_events
+from app.shipments.auto_advance import revert_auto_advance, try_auto_advance
 from app.shipments.containers import add_container_event, retime_container_event, void_container_event
 from app.shipments.models import Container, ContainerEvent, Shipment
-from app.shipments.service import lock_shipment, revert_auto_advance, try_auto_advance
+from app.shipments.service import lock_shipment
 from app.shipments.state import ShipmentStatus
 from app.trucking.models import TruckingOrder, TruckingOrderEvent
 from app.trucking.schemas import OrderCreate

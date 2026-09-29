@@ -4,8 +4,9 @@ import pytest
 from sqlalchemy import func, select
 
 from app.envelope import AppError
+from app.shipments.auto_advance import try_auto_advance
 from app.shipments.models import ShipmentEvent
-from app.shipments.service import cancel_shipment, try_auto_advance
+from app.shipments.service import cancel_shipment
 from app.trucking.models import TruckingOrder
 
 DONE = ("ASSIGNED", "STARTED", "COMPLETED")
