@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from app.audit.service import record_audit, snapshot
 from app.auth.models import User
 from app.catalog.models import Carrier, Customer, Port, Warehouse
+from app.documents.checklist import missing_documents
+from app.documents.models import DOC_TYPE_LABELS, DocType
 from app.envelope import AppError
 from app.events import effective_events
 from app.shipments.audit_fields import SHIPMENT_FIELDS
@@ -139,9 +141,14 @@ def _guard_transition(db: Session, shipment: Shipment, to_status: str) -> None:
         if missing:
             labels = ", ".join(IN_TRANSIT_FIELD_LABELS[key] for key in missing)
             raise AppError("MISSING_FIELDS", f"Còn thiếu: {labels}", 409)
-    if to_status == ShipmentStatus.CLEARED and _declarations_block_clearance(db, shipment):
-        raise AppError("DECLARATION_NOT_CLEARED",
-                       "Cần ít nhất 1 tờ khai và mọi tờ khai đã có ngày thông quan", 409)
+    if to_status == ShipmentStatus.CLEARED:
+        if _declarations_block_clearance(db, shipment):
+            raise AppError("DECLARATION_NOT_CLEARED",
+                           "Cần ít nhất 1 tờ khai và mọi tờ khai đã có ngày thông quan", 409)
+        missing = missing_documents(db, shipment, at_status=ShipmentStatus.CLEARED)
+        if missing:
+            labels = ", ".join(DOC_TYPE_LABELS[DocType(doc_type)] for doc_type in missing)
+            raise AppError("MISSING_DOCUMENTS", f"Thiếu chứng từ: {labels}", 409)
 
 
 def transition_shipment(db: Session, shipment_id: int, to_status: str, actor: User) -> Shipment:

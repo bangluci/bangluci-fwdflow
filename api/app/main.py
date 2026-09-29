@@ -8,6 +8,7 @@ from app.auth.router import router as auth_router
 from app.catalog.router import router as catalog_router
 from app.config import get_settings
 from app.db import get_db
+from app.documents.router import router as documents_router
 from app.envelope import install_handlers, ok
 from app.shipments.containers_router import router as containers_router
 from app.shipments.router import router as shipments_router
@@ -21,7 +22,8 @@ def health(db: Session = Depends(get_db)) -> dict:
     return ok({"status": "ok", "db": "ok"})
 
 
-ROUTERS = [health_router, auth_router, audit_router, catalog_router, shipments_router, containers_router]
+ROUTERS = [health_router, auth_router, audit_router, catalog_router, shipments_router, containers_router,
+           documents_router]
 
 
 def create_app() -> FastAPI:

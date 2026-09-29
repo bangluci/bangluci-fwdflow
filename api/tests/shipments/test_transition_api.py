@@ -126,8 +126,27 @@ def test_cleared_requires_all_declarations_cleared_409(client, db, login_as, mak
     assert _go(client, shipment, "CLEARED").status_code == 409
 
 
-def test_cleared_ok_when_all_declarations_cleared(client, db, login_as, make_shipment):
+def test_cleared_blocked_missing_documents_409(client, db, login_as, make_shipment):
     login_as("DOCS")
     shipment = make_shipment(status="CUSTOMS_CLEARING")
     _declaration(db, shipment)
+    res = _go(client, shipment, "CLEARED")
+    assert res.status_code == 409 and res.json()["error"]["code"] == "MISSING_DOCUMENTS"
+    assert "D/O" in res.json()["error"]["message"]
+
+
+def test_cleared_ok_when_all_declarations_cleared(client, db, login_as, make_shipment, make_required_documents):
+    login_as("DOCS")
+    shipment = make_shipment(status="CUSTOMS_CLEARING")
+    _declaration(db, shipment)
+    make_required_documents(shipment)
     assert _go(client, shipment, "CLEARED").json()["data"]["status"] == "CLEARED"
+
+
+def test_cleared_requires_origin_proof_when_claims_fta(client, db, login_as, make_shipment, make_required_documents):
+    login_as("DOCS")
+    shipment = make_shipment(status="CUSTOMS_CLEARING", claims_fta=True)
+    _declaration(db, shipment)
+    make_required_documents(shipment)
+    res = _go(client, shipment, "CLEARED")
+    assert res.status_code == 409 and "xuất xứ" in res.json()["error"]["message"]

@@ -31,6 +31,7 @@ class Settings(BaseSettings):
 
     session_cookie_name: str = "__Host-sid"
     files_dir: Path = REPO_ROOT / "data" / "files"
+    max_upload_bytes: int = 20 * 1024 * 1024
 
     smtp_host: str = "127.0.0.1"
     smtp_port: int = 1025

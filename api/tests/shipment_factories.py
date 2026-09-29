@@ -1,10 +1,12 @@
 """Fixture tạo lô hàng / container cho test, ghi thẳng qua ORM (đăng ký trong conftest bằng pytest_plugins)."""
 
+import secrets
 from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from app.catalog.models import Carrier, Customer, Port
+from app.documents.models import DEFAULT_VISIBLE_TYPES, DocType, Document
 from app.shipments.iso6346 import container_check_digit
 from app.shipments.models import Container, ContainerEvent, Shipment, ShipmentEvent
 
@@ -74,5 +76,35 @@ def make_container(db):
             container.status = kind
         db.flush()
         return container
+
+    return _make
+
+
+@pytest.fixture
+def make_document(db, make_user):
+    """Chứng từ đã lưu metadata (không có file trên đĩa); sha256 ngẫu nhiên, duy nhất."""
+
+    def _make(shipment: Shipment, doc_type: str = "INVOICE", superseded_by: Document | None = None,
+              **fields) -> Document:
+        document = Document(shipment_id=shipment.id, doc_type=doc_type, file_sha256=secrets.token_hex(32),
+                            mime="application/pdf", size_bytes=1000, pages=1,
+                            visible_to_customer=DocType(doc_type) in DEFAULT_VISIBLE_TYPES,
+                            uploaded_by=fields.pop("uploaded_by", None) or make_user("DOCS").id, **fields)
+        db.add(document)
+        db.flush()
+        if superseded_by is not None:
+            raise ValueError("Dùng make_document(old) rồi gán old.superseded_by_id = new.id")
+        return document
+
+    return _make
+
+
+@pytest.fixture
+def make_required_documents(make_document):
+    """Tạo đủ chứng từ bắt buộc cho một lô FCL không FTA tới mốc CLEARED."""
+
+    def _make(shipment: Shipment) -> list[Document]:
+        types = ["MBL", "HBL", "INVOICE", "PACKING_LIST", "ARRIVAL_NOTICE", "CUSTOMS_DECLARATION", "DO"]
+        return [make_document(shipment, doc_type) for doc_type in types]
 
     return _make
