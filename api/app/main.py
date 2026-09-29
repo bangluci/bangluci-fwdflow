@@ -1,8 +1,12 @@
+from contextlib import asynccontextmanager
+
 from fastapi import APIRouter, Depends, FastAPI, Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.ai.extraction.router import router as extraction_router
+from app.ai.hs import embed
+from app.ai.hs.router import router as hs_router
 from app.ai.router import router as ai_router
 from app.audit.router import router as audit_router
 from app.auth.deps import CsrfMiddleware
@@ -34,15 +38,24 @@ def health(db: Session = Depends(get_db)) -> dict:
 
 
 ROUTERS = [health_router, auth_router, audit_router, catalog_router, shipments_router, containers_router,
-           documents_router, ai_router, extraction_router, freetime_router, trucking_router,
+           documents_router, ai_router, extraction_router, hs_router, freetime_router, trucking_router,
            driver_router, last_mile_router, public_router,
            finance_router, reports_router, portal_router]
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Nạp bge-m3 ở luồng nền khi EMBED_PRELOAD bật; chưa nạp xong thì gợi ý mã HS chạy bản rút gọn."""
+    if get_settings().embed_preload:
+        embed.start_background_load()
+    yield
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
     docs = settings.app_env != "prod"
     app = FastAPI(
+        lifespan=lifespan,
         title="FwdFlow API",
         docs_url="/api/docs" if docs else None,
         redoc_url=None,

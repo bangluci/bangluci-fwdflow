@@ -17,6 +17,7 @@ from app.ratelimit import FixedWindowLimiter
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 AI_RATE_LIMITS = {"extraction": 30, "hs": 60, "nlq": 30}  # lượt mỗi giờ mỗi user
 _limiters = {feature: FixedWindowLimiter(limit, 3600) for feature, limit in AI_RATE_LIMITS.items()}
+HS_USAGE = "llm->'usage'"  # cột jsonb của hs_suggestion_logs
 TOKEN_KEYS = ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
 
 register_audit_fields("ai", ("date", "tokens", "budget"))
@@ -44,14 +45,21 @@ def ai_today(db: Session) -> date:
     return date.fromisoformat(as_of) if as_of else datetime.now(VN_TZ).date()
 
 
+def _token_sum(usage: str) -> str:
+    return " + ".join(f"coalesce(({usage}->>'{key}')::bigint, 0)" for key in TOKEN_KEYS)
+
+
 def tokens_today(db: Session) -> int:
-    """Token đã dùng hôm nay. # ponytail: token của một extraction tính vào ngày gọi cuối cùng; cần chính xác theo
-    từng lần gọi thì thêm bảng ai_call_logs. Task 12.4 và 13.3 cộng thêm hs_suggestion_logs / nl_query_logs."""
-    parts = " + ".join(f"coalesce((usage->>'{key}')::bigint, 0)" for key in TOKEN_KEYS)
-    total = db.scalar(text(
-        f"SELECT coalesce(sum({parts}), 0) FROM extractions WHERE processed_at IS NOT NULL "  # noqa: S608
-        "AND (processed_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = :today"), {"today": ai_today(db)})
-    return int(total)
+    """Token đã dùng hôm nay (đọc chứng từ + gợi ý mã HS). # ponytail: token của một extraction tính vào ngày gọi
+    cuối cùng; cần chính xác theo từng lần gọi thì thêm bảng ai_call_logs. Task 13.3 cộng thêm nl_query_logs."""
+    today = {"today": ai_today(db)}
+    extraction = db.scalar(text(
+        f"SELECT coalesce(sum({_token_sum('usage')}), 0) FROM extractions WHERE processed_at IS NOT NULL "  # noqa: S608
+        "AND (processed_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = :today"), today)
+    hs = db.scalar(text(
+        f"SELECT coalesce(sum({_token_sum(HS_USAGE)}), 0) FROM hs_suggestion_logs "  # noqa: S608
+        "WHERE llm IS NOT NULL AND (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = :today"), today)
+    return int(extraction) + int(hs)
 
 
 def check_daily_budget(db: Session) -> bool:

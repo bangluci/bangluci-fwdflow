@@ -3,6 +3,7 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.ai.hs.models import HsSuggestionLog
 from app.audit.service import record_audit, snapshot
 from app.auth.models import User
 from app.envelope import AppError
@@ -17,9 +18,17 @@ ITEM_INPUT_FIELDS = tuple(ItemIn.model_fields)
 DECLARATION_INPUT_FIELDS = tuple(DeclarationIn.model_fields)
 
 
-def _hs_source(hs_code: str | None) -> str | None:
-    """Mã HS nhập tay luôn có nguồn `manual`; mã do AI chọn được ghi ở `hs.suggest` (`ai_accepted`)."""
-    return "manual" if hs_code else None
+def _hs_source(db: Session, actor: User, hs_code: str | None, claimed: str | None) -> str | None:
+    """Mã HS nhập tay có nguồn `manual`; `ai_accepted` chỉ khi người gọi vừa được AI gợi ý đúng mã này."""
+    if not hs_code:
+        return None
+    if claimed != "ai_accepted":
+        return "manual"
+    suggested = db.scalar(select(HsSuggestionLog.id).where(
+        HsSuggestionLog.user_id == actor.id, HsSuggestionLog.candidates.contains([{"code": hs_code}])).limit(1))
+    if suggested is None:
+        raise AppError("HS_NOT_SUGGESTED", "Mã HS này chưa được AI gợi ý cho bạn", 400)
+    return "ai_accepted"
 
 
 def _get_item(db: Session, shipment_id: int, item_id: int) -> ShipmentItem:
@@ -33,8 +42,9 @@ def add_item(db: Session, shipment_id: int, data: ItemIn, actor: User) -> Shipme
     get_open_shipment(db, shipment_id)
     line_no = (db.scalar(select(func.max(ShipmentItem.line_no)).where(ShipmentItem.shipment_id == shipment_id))
                or 0) + 1
-    item = ShipmentItem(shipment_id=shipment_id, line_no=line_no, hs_source=_hs_source(data.hs_code),
-                        **data.model_dump())
+    item = ShipmentItem(shipment_id=shipment_id, line_no=line_no,
+                        hs_source=_hs_source(db, actor, data.hs_code, data.hs_source),
+                        **data.model_dump(exclude={"hs_source"}))
     db.add(item)
     db.flush()
     record_audit(db, actor.id, "CREATE", "shipment_item", item.id, after=snapshot(item, ITEM_FIELDS))
@@ -48,8 +58,8 @@ def update_item(db: Session, shipment_id: int, item_id: int, payload: dict, acto
     before = snapshot(item, ITEM_FIELDS)
     for key in payload.keys() & values.keys():
         setattr(item, key, values[key])
-    if "hs_code" in payload:
-        item.hs_source = _hs_source(item.hs_code)
+    if "hs_code" in payload or "hs_source" in payload:
+        item.hs_source = _hs_source(db, actor, item.hs_code, payload.get("hs_source"))
     db.flush()
     record_audit(db, actor.id, "UPDATE", "shipment_item", item.id, before=before, after=snapshot(item, ITEM_FIELDS))
     return item

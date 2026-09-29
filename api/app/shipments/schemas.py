@@ -80,6 +80,8 @@ class ItemIn(BaseModel):
     value_amount: int | None = Field(default=None, ge=0)
     value_currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
     hs_code: str | None = Field(default=None, pattern=r"^[0-9]{8}$")
+    # `ai_accepted` chỉ hợp lệ khi chính người gọi vừa được AI gợi ý đúng mã này; còn lại luôn là `manual`
+    hs_source: Literal["manual", "ai_accepted"] | None = None
 
 
 class DeclarationIn(BaseModel):

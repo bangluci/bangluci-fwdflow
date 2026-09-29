@@ -46,7 +46,15 @@ def test_patch_item_unknown_field_422(client, login_as, make_shipment):
     login_as("DOCS")
     shipment = make_shipment()
     item = client.post(_items(client, shipment), json=ITEM).json()["data"]
-    assert client.patch(f"{_items(client, shipment)}/{item['id']}", json={"hs_source": "ai_accepted"}).status_code == 422
+    assert client.patch(f"{_items(client, shipment)}/{item['id']}", json={"bogus": 1}).status_code == 422
+
+
+def test_patch_item_ai_accepted_without_suggestion_400(client, login_as, make_shipment):
+    login_as("DOCS")
+    shipment = make_shipment()
+    item = client.post(_items(client, shipment), json=ITEM).json()["data"]
+    res = client.patch(f"{_items(client, shipment)}/{item['id']}", json={"hs_code": "84713020", "hs_source": "ai_accepted"})
+    assert res.status_code == 400 and res.json()["error"]["code"] == "HS_NOT_SUGGESTED"
 
 
 def test_delete_item(client, db, login_as, make_shipment):
