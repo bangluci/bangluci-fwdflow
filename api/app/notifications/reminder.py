@@ -15,7 +15,7 @@ from app.audit.models import AuditLog
 from app.audit.service import record_audit
 from app.auth.models import Role, User
 from app.auth.scope import scope_shipments
-from app.catalog.models import Customer
+from app.catalog.models import Carrier, Customer
 from app.config import get_settings
 from app.notifications.mailer import MailerError, send_email
 from app.notifications.models import NotificationLog, NotificationStatus
@@ -45,15 +45,20 @@ WHERE f.container_level IS NOT NULL AND f.level = f.container_level
   AND f.shipment_status NOT IN ('CANCELLED', 'COMPLETED')
 ORDER BY f.container_id, f.due_date NULLS LAST, f.fee_type
 """
-_DO_ROWS = """
-SELECT s.id AS shipment_id, s.code AS shipment_code, cu.name AS customer_name, ca.name AS carrier_name,
-       s.staff_id, s.do_valid_until
-FROM shipments s JOIN customers cu ON cu.id = s.customer_id LEFT JOIN carriers ca ON ca.id = s.carrier_id
+_DO_IDS = """
+SELECT s.id FROM shipments s
 WHERE s.load_type = 'FCL' AND s.status NOT IN ('CANCELLED', 'COMPLETED')
   AND s.do_valid_until IS NOT NULL AND s.do_valid_until <= :as_of + 1
   AND EXISTS (SELECT 1 FROM containers c WHERE c.shipment_id = s.id AND NOT EXISTS (
       SELECT 1 FROM effective_container_milestones m WHERE m.container_id = c.id AND m.kind = 'GATE_OUT_FULL'))
 """
+
+
+def do_expiring_shipments(db: Session, as_of: date) -> list[Shipment]:
+    """Lô FCL còn hiệu lực có D/O hết hạn trong vòng 1 ngày (hoặc đã hết) mà còn container chưa lấy ra khỏi cảng."""
+    ids = db.scalars(text(_DO_IDS), {"as_of": as_of}).all()
+    return list(db.scalars(select(Shipment).where(Shipment.id.in_(ids)).order_by(Shipment.do_valid_until,
+                                                                                 Shipment.id)))
 
 
 @dataclass
@@ -105,10 +110,14 @@ def _clock_items(db: Session, as_of: date) -> list[tuple[ReminderItem, int, int]
 
 
 def _do_items(db: Session, as_of: date) -> list[tuple[ReminderItem, int]]:
-    rows = db.execute(text(_DO_ROWS), {"as_of": as_of}).mappings()
-    return [(ReminderItem(shipment_id=r["shipment_id"], shipment_code=r["shipment_code"],
-                          customer_name=r["customer_name"], carrier_name=r["carrier_name"], container_no=None,
-                          level=DO_EXPIRING, do_valid_until=r["do_valid_until"]), r["staff_id"]) for r in rows]
+    items = []
+    for shipment in do_expiring_shipments(db, as_of):
+        carrier = db.get(Carrier, shipment.carrier_id) if shipment.carrier_id else None
+        items.append((ReminderItem(shipment_id=shipment.id, shipment_code=shipment.code,
+                                   customer_name=db.get(Customer, shipment.customer_id).name,
+                                   carrier_name=carrier.name if carrier else None, container_no=None,
+                                   level=DO_EXPIRING, do_valid_until=shipment.do_valid_until), shipment.staff_id))
+    return items
 
 
 def collect_reminders(db: Session, as_of: date) -> dict[str, ReminderPayload]:

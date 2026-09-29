@@ -13,11 +13,14 @@ from app.db import get_db
 from app.documents.router import router as documents_router
 from app.driver.router import router as driver_router
 from app.envelope import install_handlers, ok
+from app.finance.router import router as finance_router
 from app.freetime.router import router as freetime_router
 from app.lastmile.public_router import router as public_router
 from app.lastmile.router import router as last_mile_router
 from app.notifications import models as _notification_models  # noqa: F401  đăng ký AUDIT_FIELDS cho bộ lọc audit
+from app.reports.router import router as reports_router
 from app.shipments.containers_router import router as containers_router
+from app.shipments.portal_router import router as portal_router
 from app.shipments.router import router as shipments_router
 from app.trucking.router import router as trucking_router
 
@@ -32,7 +35,8 @@ def health(db: Session = Depends(get_db)) -> dict:
 
 ROUTERS = [health_router, auth_router, audit_router, catalog_router, shipments_router, containers_router,
            documents_router, ai_router, extraction_router, freetime_router, trucking_router,
-           driver_router, last_mile_router, public_router]
+           driver_router, last_mile_router, public_router,
+           finance_router, reports_router, portal_router]
 
 
 def create_app() -> FastAPI:

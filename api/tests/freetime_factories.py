@@ -61,7 +61,8 @@ def ft(db, make_shipment, make_container):
                                  pod_port_id=port(port_code).id, eta=datetime.fromisoformat(eta).date(),
                                  **shipment_fields)
         return make_container(shipment, container_type=container_type,
-                              milestones={kind: at(day) for kind, day in (milestones or {}).items()})
+                              milestones={kind: day if isinstance(day, datetime) else at(day)
+                                                 for kind, day in (milestones or {}).items()})
 
     def override(shipment_id, fee_type, free_days, source="DO"):
         row = ShipmentFreeTimeOverride(shipment_id=shipment_id, fee_type=fee_type, free_days=free_days, source=source)
