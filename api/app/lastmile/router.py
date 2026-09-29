@@ -1,17 +1,21 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.auth.deps import require
 from app.auth.models import User
+from app.config import get_settings
 from app.db import get_db
-from app.envelope import ok
+from app.envelope import AppError, ok
 from app.lastmile import queries, service
+from app.lastmile.label_pdf import render_label_pdf
+from app.lastmile.models import LastMileOrder
 from app.lastmile.schemas import AssignIn, ReasonIn, ReassignIn, SplitIn
 from app.lastmile.state import LastMileStatus
 from app.lastmile.tracking_code import normalize_code
+from app.shipments.models import Shipment
 
 router = APIRouter(tags=["last-mile"])
 Db = Annotated[Session, Depends(get_db)]
@@ -76,3 +80,14 @@ def void_event(order_id: int, event_id: int, body: ReasonIn, db: Db, user: Voide
     service.void_event(db, user, order_id, event_id, body.reason)
     db.commit()
     return ok(queries.get_order(db, order_id))
+
+
+@router.get("/last-mile-orders/{order_id}/label.pdf")
+def label_pdf(order_id: int, db: Db, user: Manager) -> Response:
+    order = db.get(LastMileOrder, order_id)
+    if order is None:
+        raise AppError("NOT_FOUND", "Không tìm thấy đơn giao", 404)
+    pdf = render_label_pdf(order, db.get(Shipment, order.shipment_id).code, get_settings().public_base_url)
+    return Response(pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="nhan-{order.tracking_code}.pdf"',
+                             "Cache-Control": "private, no-store"})

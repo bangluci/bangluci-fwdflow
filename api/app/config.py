@@ -3,7 +3,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -58,6 +58,13 @@ class Settings(BaseSettings):
 
     # Chỉ test / e2e: cố định "hôm nay" cho mọi truy vấn phụ thuộc ngày
     app_today: date | None = None
+
+    @model_validator(mode="after")
+    def _prod_needs_https(self) -> "Settings":
+        """QR trên nhãn in ra trỏ tới `public_base_url`, nên ở prod phải là https."""
+        if self.app_env == "prod" and not self.public_base_url.startswith("https://"):
+            raise ValueError("PUBLIC_BASE_URL phải bắt đầu bằng https:// khi APP_ENV=prod")
+        return self
 
 
 @lru_cache

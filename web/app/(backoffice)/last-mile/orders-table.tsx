@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, MapPin } from "lucide-react";
+import { ChevronDown, ChevronRight, MapPin, Printer } from "lucide-react";
 import Link from "next/link";
 import { Fragment, useState } from "react";
 import { ErrorBanner, Field } from "@/components/form-field";
@@ -152,7 +152,10 @@ export function OrdersTable({ orders, loading, canManage, canVoid, showShipment 
                   <TableCell>{o.driver_name ?? <span className="text-muted-foreground">Chưa gán</span>}</TableCell>
                   <TableCell>{formatDate(o.planned_date)}</TableCell>
                   <TableCell><LastMileStatusBadge status={o.status} /></TableCell>
-                  <TableCell className="text-right"><div className="flex justify-end gap-1">{buttons(o).map(([mode, label]) => <Button key={mode} size="xs" variant="outline" onClick={() => setAction({ order: o, mode })}>{label}</Button>)}</div></TableCell>
+                  <TableCell className="text-right"><div className="flex justify-end gap-1">
+                    {buttons(o).map(([mode, label]) => <Button key={mode} size="xs" variant="outline" onClick={() => setAction({ order: o, mode })}>{label}</Button>)}
+                    {canManage && <Button asChild size="xs" variant="ghost"><a href={`/api/last-mile-orders/${o.id}/label.pdf`} target="_blank" rel="noreferrer"><Printer />In nhãn</a></Button>}
+                  </div></TableCell>
                 </TableRow>
                 {expanded && (
                   <TableRow className="bg-muted/30 hover:bg-muted/30">

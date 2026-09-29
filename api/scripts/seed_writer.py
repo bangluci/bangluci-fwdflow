@@ -17,6 +17,7 @@ from app.documents.storage import path_for
 from app.finance.models import Charge
 from app.finance.service import compute_amount_vnd
 from app.freetime.models import FreeTimeRule, FreeTimeTier
+from app.lastmile.label_pdf import FONT_DIR
 from app.lastmile.models import LastMileEvent, LastMileOrder
 from app.shipments.models import Container, ContainerEvent, CustomsDeclaration, Shipment, ShipmentEvent
 from app.trucking.models import TruckingOrder, TruckingOrderEvent
@@ -33,9 +34,10 @@ def _pdf(title: str, detail: str) -> bytes:
     pdf = FPDF()
     pdf.set_creation_date(datetime(2026, 1, 1, tzinfo=UTC))
     pdf.add_page()
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 12, "SIMULATED DOCUMENT - CHUNG TU MO PHONG", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", size=12)
+    pdf.add_font("DejaVu", "", str(FONT_DIR / "DejaVuSans.ttf"))
+    pdf.set_font("DejaVu", size=16)
+    pdf.cell(0, 12, "CHỨNG TỪ MÔ PHỎNG", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("DejaVu", size=12)
     pdf.multi_cell(0, 8, f"{title}\n{detail}")
     return bytes(pdf.output())
 
