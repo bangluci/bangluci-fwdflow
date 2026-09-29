@@ -84,7 +84,7 @@ def record_audit(
             entity_id=None if entity_id is None else str(entity_id),
             before=_clean(entity, before, after),
             after=_clean(entity, after, before),
-            ip=ip,
+            ip=ip or db.info.get("ip"),
         )
     )
 

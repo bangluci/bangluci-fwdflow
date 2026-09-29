@@ -11,6 +11,7 @@ from app.auth.service import resolve_session
 from app.config import get_settings
 from app.db import get_db
 from app.envelope import AppError
+from app.ratelimit import client_ip
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
@@ -20,6 +21,7 @@ def current_user(request: Request, db: DbSession = Depends(get_db)) -> User:
     resolved = resolve_session(db, token) if token else None
     if resolved is None:
         raise AppError("UNAUTHENTICATED", "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại", 401)
+    db.info["ip"] = client_ip(request)  # record_audit lấy IP từ đây khi route không truyền tường minh
     return resolved[1]
 
 
