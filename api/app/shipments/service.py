@@ -5,7 +5,7 @@ Các hàm không commit; route commit sau khi ghi audit cùng transaction.
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.ai.extraction.discrepancies import unresolved_blocking_keys
@@ -27,6 +27,7 @@ from app.shipments.state import (
     assert_manual_transition,
     missing_for_in_transit,
 )
+from app.trucking.models import TruckingOrder
 
 REFERENCES = {
     "customer_id": (Customer, "Khách hàng"),
@@ -186,6 +187,33 @@ def _cancel_pending_extractions(db: Session, shipment: Shipment) -> None:
         extraction.status = ExtractionStatus.CANCELLED
 
 
+def _cancel_trucking_orders(db: Session, shipment: Shipment, reason: str, actor: User) -> None:
+    from app.trucking.service import cancel_order  # nạp trễ: trucking.service cũng import module này
+
+    open_orders = db.scalars(select(TruckingOrder.id).where(
+        TruckingOrder.shipment_id == shipment.id, TruckingOrder.status.in_(("PLANNED", "ASSIGNED"))))
+    for order_id in open_orders.all():
+        cancel_order(db, actor, order_id, f"Lô huỷ: {reason}")
+
+
+def try_auto_advance(db: Session, shipment: Shipment) -> bool:
+    """Tự chuyển trạng thái lô khi điều kiện đã đủ; gọi sau mỗi thay đổi lệnh xe / container (lô đã bị khoá).
+
+    CLEARED → AT_WAREHOUSE: lô FCL có ít nhất một container và mọi container đã có lệnh PICKUP_FULL hoàn tất.
+    """
+    if shipment.status != ShipmentStatus.CLEARED or shipment.load_type != "FCL":
+        return False
+    total = db.scalar(select(func.count()).select_from(Container).where(Container.shipment_id == shipment.id))
+    done = db.scalar(select(func.count(func.distinct(TruckingOrder.container_id))).where(
+        TruckingOrder.shipment_id == shipment.id, TruckingOrder.kind == "PICKUP_FULL",
+        TruckingOrder.status == "COMPLETED"))
+    if not total or total != done:
+        return False
+    record_transition(db, shipment, ShipmentStatus.AT_WAREHOUSE, None, from_status=shipment.status,
+                      reason="Tự chuyển: mọi container đã tới kho đích")
+    return True
+
+
 def cancel_shipment(db: Session, shipment_id: int, reason: str, actor: User) -> Shipment:
     shipment = lock_shipment(db, shipment_id)
     if shipment.status in (ShipmentStatus.COMPLETED, ShipmentStatus.CANCELLED):
@@ -195,6 +223,7 @@ def cancel_shipment(db: Session, shipment_id: int, reason: str, actor: User) -> 
         raise AppError("CANCEL_AFTER_GATE_OUT", "Container đã ra khỏi cảng, không huỷ được lô", 409)
     from_status = shipment.status
     _cancel_pending_extractions(db, shipment)
+    _cancel_trucking_orders(db, shipment, reason, actor)
     record_transition(db, shipment, ShipmentStatus.CANCELLED, actor.id, from_status=from_status, reason=reason)
     record_audit(db, actor.id, "CANCEL", "shipment", shipment.id, before={"status": from_status},
                  after={"status": ShipmentStatus.CANCELLED})

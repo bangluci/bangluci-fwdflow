@@ -11,7 +11,7 @@ from app.audit.models import AuditLog
 
 SECRET_FIELDS = frozenset({"password_hash", "token_hash"})
 PII_FIELDS = frozenset({"phone", "email", "address", "recipient_phone", "recipient_address", "lat", "lng",
-                        "tax_code"})
+                        "signer_name", "tax_code"})
 
 # entity -> các cột được phép vào audit (ngoài SECRET/PII được xử lý riêng)
 AUDIT_FIELDS: dict[str, frozenset[str]] = {}
