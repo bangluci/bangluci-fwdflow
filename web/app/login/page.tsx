@@ -74,8 +74,8 @@ function LoginForm() {
 }
 
 const LEGEND = [
-  { dot: "bg-success", label: "Còn hạn" },
-  { dot: "bg-warning", label: "Sắp hết" },
+  { dot: "bg-success", label: "An toàn" },
+  { dot: "bg-warning", label: "Sắp hạn" },
   { dot: "bg-danger", label: "Quá hạn" },
 ];
 
