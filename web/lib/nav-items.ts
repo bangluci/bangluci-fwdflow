@@ -39,7 +39,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Tài chính & AI",
     items: [
       { href: "/reports", label: "Báo cáo", action: "finance.read", icon: ChartColumn, ready: true },
-      { href: "/assistant", label: "Trợ lý", action: "assistant.ask", icon: MessageSquareText, ready: false },
+      { href: "/assistant", label: "Trợ lý", action: "assistant.ask", icon: MessageSquareText, ready: true },
     ],
   },
   {

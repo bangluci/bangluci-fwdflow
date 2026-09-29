@@ -50,8 +50,8 @@ def _token_sum(usage: str) -> str:
 
 
 def tokens_today(db: Session) -> int:
-    """Token đã dùng hôm nay (đọc chứng từ + gợi ý mã HS). # ponytail: token của một extraction tính vào ngày gọi
-    cuối cùng; cần chính xác theo từng lần gọi thì thêm bảng ai_call_logs. Task 13.3 cộng thêm nl_query_logs."""
+    """Token đã dùng hôm nay (đọc chứng từ + gợi ý mã HS + hỏi đáp). # ponytail: token của một extraction tính vào
+    ngày gọi cuối cùng; cần chính xác theo từng lần gọi thì thêm bảng ai_call_logs."""
     today = {"today": ai_today(db)}
     extraction = db.scalar(text(
         f"SELECT coalesce(sum({_token_sum('usage')}), 0) FROM extractions WHERE processed_at IS NOT NULL "  # noqa: S608
@@ -59,7 +59,10 @@ def tokens_today(db: Session) -> int:
     hs = db.scalar(text(
         f"SELECT coalesce(sum({_token_sum(HS_USAGE)}), 0) FROM hs_suggestion_logs "  # noqa: S608
         "WHERE llm IS NOT NULL AND (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = :today"), today)
-    return int(extraction) + int(hs)
+    nlq = db.scalar(text(
+        f"SELECT coalesce(sum({_token_sum('usage')}), 0) FROM nl_query_logs "  # noqa: S608
+        "WHERE usage IS NOT NULL AND (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = :today"), today)
+    return int(extraction) + int(hs) + int(nlq)
 
 
 def check_daily_budget(db: Session) -> bool:

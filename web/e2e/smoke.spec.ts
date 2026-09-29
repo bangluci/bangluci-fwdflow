@@ -3,12 +3,12 @@ import { authFile, type Role } from "./helpers";
 
 // Menu theo vai trò (bảng quyền ở api/app/auth/permissions.py) và mỗi màn mở được, không lỗi JS, không API lỗi 5xx.
 const NAV: Record<Exclude<Role, "CUSTOMER" | "DRIVER">, { path: string; label: string }[]> = {
-  ADMIN: [["/dashboard", "Tổng quan"], ["/shipments", "Lô hàng"], ["/freetime", "Free time"], ["/trucking", "Điều xe"], ["/last-mile", "Giao nội địa"], ["/reports", "Báo cáo"], ["/catalog/customers", "Danh mục"], ["/users", "Người dùng"], ["/audit", "Nhật ký"]].map(([path, label]) => ({ path, label })),
-  DOCS: [["/dashboard", "Tổng quan"], ["/shipments", "Lô hàng"], ["/freetime", "Free time"], ["/catalog/customers", "Danh mục"]].map(([path, label]) => ({ path, label })),
-  DISPATCH: [["/dashboard", "Tổng quan"], ["/shipments", "Lô hàng"], ["/freetime", "Free time"], ["/trucking", "Điều xe"], ["/last-mile", "Giao nội địa"], ["/catalog/customers", "Danh mục"]].map(([path, label]) => ({ path, label })),
-  ACCOUNTANT: [["/dashboard", "Tổng quan"], ["/shipments", "Lô hàng"], ["/freetime", "Free time"], ["/reports", "Báo cáo"], ["/catalog/customers", "Danh mục"]].map(([path, label]) => ({ path, label })),
+  ADMIN: [["/dashboard", "Tổng quan"], ["/shipments", "Lô hàng"], ["/freetime", "Free time"], ["/trucking", "Điều xe"], ["/last-mile", "Giao nội địa"], ["/reports", "Báo cáo"], ["/assistant", "Trợ lý"], ["/catalog/customers", "Danh mục"], ["/users", "Người dùng"], ["/audit", "Nhật ký"]].map(([path, label]) => ({ path, label })),
+  DOCS: [["/dashboard", "Tổng quan"], ["/shipments", "Lô hàng"], ["/freetime", "Free time"], ["/assistant", "Trợ lý"], ["/catalog/customers", "Danh mục"]].map(([path, label]) => ({ path, label })),
+  DISPATCH: [["/dashboard", "Tổng quan"], ["/shipments", "Lô hàng"], ["/freetime", "Free time"], ["/trucking", "Điều xe"], ["/last-mile", "Giao nội địa"], ["/assistant", "Trợ lý"], ["/catalog/customers", "Danh mục"]].map(([path, label]) => ({ path, label })),
+  ACCOUNTANT: [["/dashboard", "Tổng quan"], ["/shipments", "Lô hàng"], ["/freetime", "Free time"], ["/reports", "Báo cáo"], ["/assistant", "Trợ lý"], ["/catalog/customers", "Danh mục"]].map(([path, label]) => ({ path, label })),
 };
-const ALL_LABELS = ["Tổng quan", "Lô hàng", "Free time", "Điều xe", "Giao nội địa", "Báo cáo", "Danh mục", "Người dùng", "Nhật ký"];
+const ALL_LABELS = ["Tổng quan", "Lô hàng", "Free time", "Điều xe", "Giao nội địa", "Báo cáo", "Trợ lý", "Danh mục", "Người dùng", "Nhật ký"];
 
 function watchFailures(page: Page): string[] {
   const failures: string[] = [];

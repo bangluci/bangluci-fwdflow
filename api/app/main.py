@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.ai.extraction.router import router as extraction_router
 from app.ai.hs import embed
 from app.ai.hs.router import router as hs_router
+from app.ai.nlq.router import router as nlq_router
 from app.ai.router import router as ai_router
 from app.audit.router import router as audit_router
 from app.auth.deps import CsrfMiddleware
@@ -38,7 +39,7 @@ def health(db: Session = Depends(get_db)) -> dict:
 
 
 ROUTERS = [health_router, auth_router, audit_router, catalog_router, shipments_router, containers_router,
-           documents_router, ai_router, extraction_router, hs_router, freetime_router, trucking_router,
+           documents_router, ai_router, extraction_router, hs_router, nlq_router, freetime_router, trucking_router,
            driver_router, last_mile_router, public_router,
            finance_router, reports_router, portal_router]
 
