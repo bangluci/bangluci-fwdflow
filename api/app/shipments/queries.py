@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import date
 
-from sqlalchemy import exists, func, or_, select
+from sqlalchemy import ARRAY, String, bindparam, exists, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.audit.service import snapshot
@@ -26,6 +26,7 @@ class ShipmentFilters:
     statuses: list[str] = field(default_factory=list)
     customer_id: int | None = None
     carrier_id: int | None = None
+    freetime_levels: list[str] = field(default_factory=list)
     eta_from: date | None = None
     eta_to: date | None = None
     page: int = 1
@@ -51,6 +52,11 @@ def _conditions(f: ShipmentFilters) -> list:
             exists().where(Container.shipment_id == Shipment.id,
                            Container.container_no.like(container_like, escape="\\")),
         ))
+    if f.freetime_levels:
+        conds.append(text(
+            "EXISTS (SELECT 1 FROM nlq.v_container_freetime v WHERE v.shipment_id = shipments.id "
+            "AND v.container_level = ANY(:levels) AND v.shipment_status NOT IN ('CANCELLED', 'COMPLETED'))"
+        ).bindparams(bindparam("levels", value=f.freetime_levels, type_=ARRAY(String))))
     if f.statuses:
         conds.append(Shipment.status.in_(f.statuses))
     if f.customer_id:

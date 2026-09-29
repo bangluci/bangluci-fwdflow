@@ -12,6 +12,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.documents.router import router as documents_router
 from app.envelope import install_handlers, ok
+from app.freetime.router import router as freetime_router
 from app.shipments.containers_router import router as containers_router
 from app.shipments.router import router as shipments_router
 
@@ -25,7 +26,7 @@ def health(db: Session = Depends(get_db)) -> dict:
 
 
 ROUTERS = [health_router, auth_router, audit_router, catalog_router, shipments_router, containers_router,
-           documents_router, ai_router, extraction_router]
+           documents_router, ai_router, extraction_router, freetime_router]
 
 
 def create_app() -> FastAPI:

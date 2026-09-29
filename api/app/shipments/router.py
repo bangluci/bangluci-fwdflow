@@ -9,6 +9,7 @@ from app.auth.models import User
 from app.auth.scope import get_scoped_or_404
 from app.db import get_db
 from app.envelope import ok
+from app.freetime.schemas import LevelName
 from app.shipments import lines, service
 from app.shipments.audit_fields import DECLARATION_FIELDS, ITEM_FIELDS
 from app.shipments.models import Shipment
@@ -45,6 +46,7 @@ def search_shipments(
     user: Reader,
     q: str | None = None,
     status: Annotated[list[str] | None, Query()] = None,
+    freetime_level: Annotated[list[LevelName] | None, Query()] = None,
     customer_id: int | None = None,
     carrier_id: int | None = None,
     eta_from: date | None = None,
@@ -52,7 +54,9 @@ def search_shipments(
     page: Annotated[int, Query(ge=1)] = 1,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> dict:
-    filters = ShipmentFilters(q, status or [], customer_id, carrier_id, eta_from, eta_to, page, limit)
+    filters = ShipmentFilters(q=q, statuses=status or [], freetime_levels=list(freetime_level or []),
+                              customer_id=customer_id, carrier_id=carrier_id, eta_from=eta_from, eta_to=eta_to,
+                              page=page, limit=limit)
     rows, total = list_shipments(db, user, filters)
     return ok(rows, meta={"total": total, "page": page, "limit": limit})
 
