@@ -13,6 +13,7 @@ from app.db import get_db
 from app.documents.router import router as documents_router
 from app.envelope import install_handlers, ok
 from app.freetime.router import router as freetime_router
+from app.notifications import models as _notification_models  # noqa: F401  đăng ký AUDIT_FIELDS cho bộ lọc audit
 from app.shipments.containers_router import router as containers_router
 from app.shipments.router import router as shipments_router
 from app.trucking.router import router as trucking_router
