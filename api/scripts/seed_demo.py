@@ -1,8 +1,13 @@
-"""Dữ liệu demo MÔ PHỎNG (không phải dữ liệu thật). Chạy: python -m scripts.seed_demo [--seed N] [--reset]."""
+"""Dữ liệu demo MÔ PHỎNG (không phải dữ liệu thật).
+
+Chạy: python -m scripts.seed_demo [--seed N] [--size small|full] [--as-of YYYY-MM-DD] [--reset].
+"""
 
 import argparse
 import sys
+from datetime import date, datetime
 from random import Random
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
@@ -12,10 +17,13 @@ from app.auth.service import hash_password, normalize_identifier
 from app.catalog.models import Carrier, Customer, Driver, Port, Truck, Trucker, Warehouse
 from app.config import get_settings
 from app.db import SessionLocal
+from scripts.seed_dataset import SIZES, build_dataset
+from scripts.seed_writer import write_dataset
 
 RESET_TABLES = ("users, sessions, login_attempts, audit_logs, customers, carriers, ports, "
                 "warehouses, truckers, trucks, drivers")
 MIN_PASSWORD_LEN = 10
+VN = ZoneInfo("Asia/Ho_Chi_Minh")
 DRIVER_LOGIN_PHONE = "0900000006"
 
 CUSTOMERS = [
@@ -88,7 +96,8 @@ def seed(db: Session, seed_value: int, *, password: str) -> list[tuple[str, str]
     return accounts
 
 
-def run(db: Session, *, seed_value: int, reset: bool, env: str, password: str) -> int:
+def run(db: Session, *, seed_value: int, reset: bool, env: str, password: str, size: str | None = None,
+        as_of: date | None = None) -> int:
     if env == "prod":
         print("seed_demo không chạy ở prod")
         return 1
@@ -102,18 +111,27 @@ def run(db: Session, *, seed_value: int, reset: bool, env: str, password: str) -
         return 1
     for role, identifier in seed(db, seed_value, password=password):
         print(f"{role}\t{identifier}")
+    if size:
+        counts = write_dataset(db, build_dataset(seed_value, size, as_of or datetime.now(VN).date()))
+        print(f"driver1: {counts['driver_orders']} lệnh")
+        print(f"shipments={counts['shipments']} containers={counts['containers']} "
+              f"last_mile_orders={counts['last_mile_orders']} charges={counts['charges']}")
     db.commit()
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
+    sys.stdout.reconfigure(encoding="utf-8")  # in tiếng Việt được cả khi Windows pipe ra file
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--size", choices=sorted(SIZES), default="small", help="quy mô dữ liệu nghiệp vụ")
+    parser.add_argument("--as-of", type=date.fromisoformat, help="ngày tham chiếu YYYY-MM-DD (mặc định hôm nay)")
     parser.add_argument("--reset", action="store_true", help="xoá dữ liệu cũ trước khi seed")
     args = parser.parse_args(argv)
     settings = get_settings()
     with SessionLocal() as db:
-        return run(db, seed_value=args.seed, reset=args.reset, env=settings.app_env, password=settings.seed_password)
+        return run(db, seed_value=args.seed, reset=args.reset, env=settings.app_env, password=settings.seed_password,
+                   size=args.size, as_of=args.as_of or settings.app_today)
 
 
 if __name__ == "__main__":

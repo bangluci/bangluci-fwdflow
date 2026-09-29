@@ -24,8 +24,10 @@ Mở http://localhost:8088 (Caddy gom web + `/api`). Mailpit: http://127.0.0.1:8
 Đặt `SEED_PASSWORD` (≥ 10 ký tự) trong `.env`, rồi:
 
 ```powershell
-python -m uv run --directory api python -m scripts.seed_demo --reset --seed 1
+python -m uv run --directory api python -m scripts.seed_demo --reset --seed 1 --size small
 ```
+
+`--size small` (20 lô / 50 container / 200 đơn giao) hoặc `full` (200 / 500 / 2000, khoảng 20 giây); `--as-of YYYY-MM-DD` cố định ngày tham chiếu (mặc định hôm nay). Không có `--size` thì chỉ tạo danh mục và tài khoản.
 
 Dữ liệu là mô phỏng. Mọi tài khoản dùng chung mật khẩu `SEED_PASSWORD`:
 
