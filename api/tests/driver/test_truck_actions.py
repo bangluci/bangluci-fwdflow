@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app.audit.models import AuditLog
 from app.shipments.models import ContainerEvent, Shipment, ShipmentEvent
 from app.trucking.models import TruckingOrderEvent
-from tests.driver.conftest import discharged_at, jpeg
+from tests.driver_factories import discharged_at, jpeg
 
 VN = ZoneInfo("Asia/Ho_Chi_Minh")
 

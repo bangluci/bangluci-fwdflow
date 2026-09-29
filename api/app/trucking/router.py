@@ -9,13 +9,15 @@ from app.auth.models import User
 from app.db import get_db
 from app.envelope import ok
 from app.trucking import queries, service
-from app.trucking.schemas import AssignIn, CancelIn, OrderCreate, ReassignIn
+from app.trucking.schemas import AssignIn, CancelIn, OrderCreate, ReassignIn, RetimeIn, VoidIn
 from app.trucking.state import TruckingStatus
 
 router = APIRouter(tags=["trucking"])
 Db = Annotated[Session, Depends(get_db)]
 Reader = Annotated[User, Depends(require("transport.read"))]
 Writer = Annotated[User, Depends(require("transport.write"))]
+Voider = Annotated[User, Depends(require("transport.void_event"))]
+Retimer = Annotated[User, Depends(require("container.retime_event"))]
 
 
 @router.get("/trucking-orders")
@@ -54,5 +56,19 @@ def reassign_order(order_id: int, body: ReassignIn, db: Db, user: Writer) -> dic
 @router.post("/trucking-orders/{order_id}/cancel")
 def cancel_order(order_id: int, body: CancelIn, db: Db, user: Writer) -> dict:
     service.cancel_order(db, user, order_id, body.reason)
+    db.commit()
+    return ok(queries.get_order(db, order_id))
+
+
+@router.post("/trucking-orders/{order_id}/events/{event_id}/void")
+def void_event(order_id: int, event_id: int, body: VoidIn, db: Db, user: Voider) -> dict:
+    service.void_trucking_event(db, user, order_id, event_id, body.reason)
+    db.commit()
+    return ok(queries.get_order(db, order_id))
+
+
+@router.post("/trucking-orders/{order_id}/events/{event_id}/retime")
+def retime_event(order_id: int, event_id: int, body: RetimeIn, db: Db, user: Retimer) -> dict:
+    service.retime_trucking_event(db, user, order_id, event_id, body.occurred_at, body.reason)
     db.commit()
     return ok(queries.get_order(db, order_id))

@@ -5,8 +5,8 @@ from sqlalchemy import select
 
 from app.shipments.models import ContainerEvent, Shipment, ShipmentEvent
 from app.shipments.service import try_auto_advance
-from tests.driver.conftest import discharged_at as _discharged_at
-from tests.driver.conftest import jpeg
+from tests.driver_factories import discharged_at as _discharged_at
+from tests.driver_factories import jpeg
 
 VN = ZoneInfo("Asia/Ho_Chi_Minh")
 RETURN_EVENTS = ("ASSIGNED", "STARTED")

@@ -196,34 +196,66 @@ def _cancel_trucking_orders(db: Session, shipment: Shipment, reason: str, actor:
         cancel_order(db, actor, order_id, f"Lô huỷ: {reason}")
 
 
-def _advance(db: Session, shipment: Shipment, to_status: str, reason: str) -> None:
-    record_transition(db, shipment, to_status, None, from_status=shipment.status, reason=reason)
+# Cạnh tự động: trạng thái hiện tại → các trạng thái kế tiếp mà hệ thống được tự chuyển tới
+AUTO_EDGES = {
+    ShipmentStatus.CLEARED: (ShipmentStatus.AT_WAREHOUSE,),
+    ShipmentStatus.AT_WAREHOUSE: (ShipmentStatus.COMPLETED,),
+}
+
+AUTO_TARGETS = frozenset(t for targets in AUTO_EDGES.values() for t in targets)
+_PICKUPS_DONE = ("SELECT count(DISTINCT container_id) FROM trucking_orders WHERE shipment_id = :shipment_id "
+                 "AND kind = 'PICKUP_FULL' AND status = 'COMPLETED'")
+_EMPTIES_RETURNED = ("SELECT count(*) FROM effective_container_milestones m JOIN containers c ON c.id = m.container_id "
+                     "WHERE c.shipment_id = :shipment_id AND m.kind = 'EMPTY_RETURNED'")
 
 
-def _all_containers_have(db: Session, shipment: Shipment, count_sql: str, **params) -> bool:
+def _all_containers_have(db: Session, shipment: Shipment, count_sql: str) -> bool:
     total = db.scalar(select(func.count()).select_from(Container).where(Container.shipment_id == shipment.id))
-    return bool(total) and total == db.scalar(text(count_sql), {"shipment_id": shipment.id, **params})
+    return bool(total) and total == db.scalar(text(count_sql), {"shipment_id": shipment.id})
+
+
+def auto_condition_holds(db: Session, shipment: Shipment, to_status: str) -> bool:
+    """Điều kiện để hệ thống tự đưa lô tới `to_status` (dùng chung cho chuyển tới và đảo lại khi huỷ event)."""
+    if to_status == ShipmentStatus.AT_WAREHOUSE:
+        return shipment.load_type == "FCL" and _all_containers_have(db, shipment, _PICKUPS_DONE)
+    if to_status == ShipmentStatus.COMPLETED:
+        return shipment.delivery_mode == "CONTAINER_TO_DOOR" and _all_containers_have(db, shipment, _EMPTIES_RETURNED)
+    return False
+
+
+def _auto_reason(shipment: Shipment, to_status: str) -> str:
+    if to_status == ShipmentStatus.AT_WAREHOUSE:
+        return "Tự chuyển: mọi container đã tới kho đích"
+    return "Tự chuyển: mọi container đã trả rỗng"
 
 
 def try_auto_advance(db: Session, shipment: Shipment) -> bool:
-    """Tự chuyển trạng thái lô khi điều kiện đã đủ; gọi sau mỗi thay đổi lệnh xe / container (lô đã bị khoá).
-
-    - CLEARED → AT_WAREHOUSE: lô FCL, mọi container đã có lệnh PICKUP_FULL hoàn tất.
-    - AT_WAREHOUSE → COMPLETED: chỉ lô CONTAINER_TO_DOOR, mọi container đã trả vỏ rỗng.
-    """
+    """Tự chuyển trạng thái lô tới khi hết cạnh hợp lệ; gọi sau mỗi thay đổi lệnh xe / container (lô đã bị khoá)."""
     moved = False
-    if shipment.status == ShipmentStatus.CLEARED and shipment.load_type == "FCL" and _all_containers_have(
-            db, shipment, "SELECT count(DISTINCT container_id) FROM trucking_orders WHERE shipment_id = :shipment_id "
-            "AND kind = 'PICKUP_FULL' AND status = 'COMPLETED'"):
-        _advance(db, shipment, ShipmentStatus.AT_WAREHOUSE, "Tự chuyển: mọi container đã tới kho đích")
+    while True:
+        target = next((t for t in AUTO_EDGES.get(shipment.status, ()) if auto_condition_holds(db, shipment, t)), None)
+        if target is None:
+            return moved
+        record_transition(db, shipment, target, None, from_status=shipment.status,
+                          reason=_auto_reason(shipment, target))
         moved = True
-    if shipment.status == ShipmentStatus.AT_WAREHOUSE and shipment.delivery_mode == "CONTAINER_TO_DOOR" and (
-            _all_containers_have(db, shipment, "SELECT count(*) FROM effective_container_milestones m "
-                                 "JOIN containers c ON c.id = m.container_id WHERE c.shipment_id = :shipment_id "
-                                 "AND m.kind = 'EMPTY_RETURNED'")):
-        _advance(db, shipment, ShipmentStatus.COMPLETED, "Tự chuyển: mọi container đã trả rỗng")
-        moved = True
-    return moved
+
+
+def revert_auto_advance(db: Session, shipment: Shipment) -> None:
+    """Sau khi huỷ một event: đảo các bước tự chuyển (actor null) không còn đủ điều kiện, dừng ở bước do người làm."""
+    while True:
+        events = db.scalars(select(ShipmentEvent).where(ShipmentEvent.shipment_id == shipment.id)).all()
+        live = [e for e in effective_events(events) if e.kind == "TRANSITION"]
+        if not live:
+            return
+        latest = next(e for e in events if e.id == live[-1].id)
+        if (latest.actor_id is not None or latest.to_status not in AUTO_TARGETS
+                or auto_condition_holds(db, shipment, latest.to_status)):
+            return
+        db.add(ShipmentEvent(shipment_id=shipment.id, kind="VOID", adjusts_event_id=latest.id, occurred_at=utcnow(),
+                             actor_id=None, reason=f"Đảo do huỷ event #{latest.id}"))
+        shipment.status = latest.from_status
+        db.flush()
 
 
 def cancel_shipment(db: Session, shipment_id: int, reason: str, actor: User) -> Shipment:

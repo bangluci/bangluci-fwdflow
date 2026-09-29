@@ -32,3 +32,15 @@ class ReassignIn(AssignIn):
 
 class CancelIn(BaseModel):
     reason: str
+
+
+AdjustReason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=5, max_length=500)]
+
+
+class VoidIn(BaseModel):
+    reason: AdjustReason
+
+
+class RetimeIn(BaseModel):
+    occurred_at: datetime
+    reason: AdjustReason

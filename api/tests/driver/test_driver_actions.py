@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app.documents.storage import path_for
 from app.driver.actions import HANDLERS
 from app.trucking.models import TruckingOrderEvent
-from tests.driver.conftest import jpeg
+from tests.driver_factories import jpeg
 
 
 def _events(db, order):

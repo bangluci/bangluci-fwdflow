@@ -16,6 +16,8 @@ PERMISSIONS: dict[str, frozenset[Role]] = {
     # Vận chuyển: lệnh xe, đơn giao, huỷ event, xác nhận LCL, đóng lô
     "transport.read": INTERNAL_ROLES,
     "transport.write": frozenset({A, DISP}),
+    "transport.void_event": frozenset({A, DISP}),  # huỷ event vận chuyển (lệnh xe, đơn giao)
+    "container.retime_event": frozenset({A, DOCS}),  # chỉnh giờ event vận chuyển (ảnh hưởng free time)
     # Tài chính
     "finance.read": frozenset({A, ACC}),
     "finance.write": frozenset({A, ACC}),

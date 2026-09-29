@@ -143,3 +143,17 @@ def retime_container_event(db: Session, container_id: int, target_id: int, occur
     db.flush()
     record_audit(db, actor.id, "RETIME", "container_event", event.id, after=snapshot(event, CONTAINER_EVENT_FIELDS))
     return event
+
+
+def void_container_event(db: Session, container_id: int, target_id: int, reason: str, actor: User) -> ContainerEvent:
+    """Huỷ mốc còn hiệu lực mới nhất bằng event VOID (huỷ mốc giữa chuỗi sẽ làm hỏng thứ tự nên không cho)."""
+    container, _, effective = _load_locked(db, container_id)
+    if not effective or effective[-1].id != target_id:
+        raise AppError("INVALID_ADJUSTMENT", "Chỉ huỷ được mốc container mới nhất", 409)
+    event = ContainerEvent(container_id=container.id, kind="VOID", adjusts_event_id=target_id,
+                           occurred_at=utcnow(), reason=reason, actor_id=actor.id)
+    db.add(event)
+    container.status = effective[-2].kind if len(effective) > 1 else None
+    db.flush()
+    record_audit(db, actor.id, "VOID", "container_event", event.id, after=snapshot(event, CONTAINER_EVENT_FIELDS))
+    return event
