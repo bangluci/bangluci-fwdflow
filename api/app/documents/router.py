@@ -34,9 +34,9 @@ def _out(document: Document) -> dict:
 @router.post("/shipments/{shipment_id}/documents", status_code=201)
 def upload_document(shipment_id: int, db: Db, user: Writer, file: Annotated[UploadFile, File()],
                     doc_type: Annotated[DocType, Form()], keep_both: Annotated[bool, Form()] = False) -> dict:
-    document = service.upload_document(db, shipment_id, file, file.filename, doc_type, keep_both, user)
+    document, extraction = service.upload_document(db, shipment_id, file, file.filename, doc_type, keep_both, user)
     db.commit()
-    return ok(_out(document))
+    return ok({**_out(document), "extraction_id": extraction.id if extraction else None})
 
 
 @router.get("/shipments/{shipment_id}/documents")
@@ -66,9 +66,9 @@ def download_document(document_id: int, db: Db, user: Reader) -> FileResponse:
 
 @router.post("/documents/{document_id}/supersede", status_code=201)
 def supersede_document(document_id: int, db: Db, user: Writer, file: Annotated[UploadFile, File()]) -> dict:
-    document = service.supersede_document(db, document_id, file, file.filename, user)
+    document, extraction = service.supersede_document(db, document_id, file, file.filename, user)
     db.commit()
-    return ok(_out(document))
+    return ok({**_out(document), "extraction_id": extraction.id if extraction else None})
 
 
 @router.get("/shipments/{shipment_id}/doc-checklist")

@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.ai.extraction.router import router as extraction_router
+from app.ai.router import router as ai_router
 from app.audit.router import router as audit_router
 from app.auth.deps import CsrfMiddleware
 from app.auth.router import router as auth_router
@@ -23,7 +25,7 @@ def health(db: Session = Depends(get_db)) -> dict:
 
 
 ROUTERS = [health_router, auth_router, audit_router, catalog_router, shipments_router, containers_router,
-           documents_router]
+           documents_router, ai_router, extraction_router]
 
 
 def create_app() -> FastAPI:

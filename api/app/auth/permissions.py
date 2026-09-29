@@ -29,6 +29,7 @@ PERMISSIONS: dict[str, frozenset[Role]] = {
     "dashboard.read": INTERNAL_ROLES,
     "dashboard.finance": frozenset({A, ACC}),
     # AI
+    "extraction.review": frozenset({A, DOCS}),  # xem / duyệt / từ chối / thử lại kết quả AI đọc chứng từ
     "hs.suggest": frozenset({A, DOCS}),
     "assistant.ask": frozenset({A, DOCS, DISP, ACC}),
     "assistant.finance_views": frozenset({A, ACC}),

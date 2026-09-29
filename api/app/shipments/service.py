@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.ai.extraction.models import Extraction, ExtractionStatus, assert_extraction_transition
 from app.audit.service import record_audit, snapshot
 from app.auth.models import User
 from app.catalog.models import Carrier, Customer, Port, Warehouse
@@ -171,6 +172,14 @@ def _has_effective_gate_out(db: Session, shipment: Shipment) -> bool:
     return False
 
 
+def _cancel_pending_extractions(db: Session, shipment: Shipment) -> None:
+    pending = db.scalars(select(Extraction).where(Extraction.shipment_id == shipment.id,
+                                                  Extraction.status == ExtractionStatus.PENDING))
+    for extraction in pending:
+        assert_extraction_transition(extraction.status, ExtractionStatus.CANCELLED)
+        extraction.status = ExtractionStatus.CANCELLED
+
+
 def cancel_shipment(db: Session, shipment_id: int, reason: str, actor: User) -> Shipment:
     shipment = lock_shipment(db, shipment_id)
     if shipment.status in (ShipmentStatus.COMPLETED, ShipmentStatus.CANCELLED):
@@ -179,6 +188,7 @@ def cancel_shipment(db: Session, shipment_id: int, reason: str, actor: User) -> 
     if _has_effective_gate_out(db, shipment):
         raise AppError("CANCEL_AFTER_GATE_OUT", "Container đã ra khỏi cảng, không huỷ được lô", 409)
     from_status = shipment.status
+    _cancel_pending_extractions(db, shipment)
     record_transition(db, shipment, ShipmentStatus.CANCELLED, actor.id, from_status=from_status, reason=reason)
     record_audit(db, actor.id, "CANCEL", "shipment", shipment.id, before={"status": from_status},
                  after={"status": ShipmentStatus.CANCELLED})
