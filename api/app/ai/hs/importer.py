@@ -12,6 +12,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.ai.hs.models import HsCode
+from app.ai.hs.pdf_source import read_pdf_rows
 
 # Vị trí cột (0-based) trong sheet đầu tiên của file nguồn; chỉnh theo biên bản kiểm chứng (Task 1.9).
 COLUMNS = {"code": 0, "vi": 1, "en": 2}
@@ -113,9 +114,15 @@ def read_sheet(path: Path) -> list[tuple[Any, Any, Any]]:
         workbook.close()
 
 
+def read_source(path: Path) -> list[tuple[Any, Any, Any]]:
+    """Thư mục (hoặc một file) PDF của Công báo, hoặc file xlsx."""
+    path = Path(path)
+    return read_pdf_rows(path) if path.is_dir() or path.suffix.lower() == ".pdf" else read_sheet(path)
+
+
 def import_hs(db: Session, path: Path) -> ImportStats:
     """Upsert theo `code`; mô tả đổi thì xoá embedding để CLI embed làm lại. Không commit."""
-    parsed, skipped_98 = parse_rows(read_sheet(Path(path)))
+    parsed, skipped_98 = parse_rows(read_source(path))
     existing = {row.code: row for row in db.scalars(select(HsCode))}
     inserted = updated = 0
     for item in parsed:
@@ -139,7 +146,7 @@ def lookup(db: Session, code: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Nạp Danh mục TT 31/2022 vào hs_codes")
-    parser.add_argument("path", nargs="?", type=Path, help="file .xlsx nguồn")
+    parser.add_argument("path", nargs="?", type=Path, help="thư mục PDF của Công báo hoặc file .xlsx nguồn")
     parser.add_argument("--lookup", metavar="CODE", help="in mô tả của một mã đã nạp")
     args = parser.parse_args(argv)
     from app.db import SessionLocal  # nạp muộn để test không tạo kết nối
