@@ -3,6 +3,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -36,6 +37,10 @@ class Settings(BaseSettings):
     smtp_host: str = "127.0.0.1"
     smtp_port: int = 1025
     smtp_from: str = "FwdFlow <no-reply@fwdflow.local>"
+    smtp_starttls: bool = False
+    smtp_user: str | None = None
+    smtp_password: SecretStr = SecretStr("")
+    mailpit_api_url: str = "http://127.0.0.1:8025"  # chỉ test đọc hộp thư Mailpit
 
     ai_external_enabled: bool = True
     anthropic_api_key: str = ""
