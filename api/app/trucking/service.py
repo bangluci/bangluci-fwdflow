@@ -9,9 +9,12 @@ from sqlalchemy.orm import Session
 from app.audit.service import record_audit, register_audit_fields, snapshot
 from app.auth.models import User
 from app.catalog.models import Driver, Truck, Trucker
+from app.driver.actions import DriverCall, DriverResult, driver_event_fields
 from app.envelope import AppError
-from app.shipments.models import Container
-from app.shipments.service import lock_shipment
+from app.events import effective_events
+from app.shipments.containers import add_container_event
+from app.shipments.models import Container, ContainerEvent
+from app.shipments.service import lock_shipment, try_auto_advance
 from app.shipments.state import ShipmentStatus
 from app.trucking.models import TruckingOrder, TruckingOrderEvent
 from app.trucking.schemas import OrderCreate
@@ -132,3 +135,48 @@ def cancel_order(db: Session, actor: User, order_id: int, reason: str) -> Trucki
     order = _lock_order(db, order_id)
     assert_transition(order.status, TruckingStatus.CANCELLED)
     return _staff_event(db, actor, order, "CANCEL", "CANCELLED", TruckingStatus.CANCELLED, reason=_reason(reason))
+
+
+def _driver_event(db: Session, call: DriverCall) -> TruckingOrderEvent:
+    order = call.order
+    event = TruckingOrderEvent(order_id=order.id, truck_id=order.truck_id, driver_id=order.driver_id,
+                               **driver_event_fields(call))
+    db.add(event)
+    db.flush()
+    record_audit(db, call.user.id, "CREATE", "trucking_order_event", event.id, after=snapshot(event, EVENT_FIELDS))
+    return event
+
+
+def _finish_driver_step(db: Session, call: DriverCall, event: TruckingOrderEvent) -> DriverResult:
+    order, before = call.order, {"status": call.order.status}
+    order.status = call.action.to_status
+    db.flush()
+    record_audit(db, call.user.id, "UPDATE", "trucking_order", order.id, before=before, after={"status": order.status})
+    return DriverResult(event.id, "TRUCKING", order.id, order.status, event.occurred_at)
+
+
+def _has_discharged(db: Session, container_id: int) -> bool:
+    events = db.scalars(select(ContainerEvent).where(ContainerEvent.container_id == container_id)).all()
+    return any(e.kind == "DISCHARGED" for e in effective_events(events))
+
+
+def start_order(db: Session, call: DriverCall) -> DriverResult:
+    """`TRUCK_START` ghi thêm mốc GATE_OUT_FULL cùng giờ; `RETURN_START` chỉ đổi trạng thái lệnh."""
+    order = call.order
+    if order.kind == "PICKUP_FULL":
+        if call.shipment.status != ShipmentStatus.CLEARED:
+            raise AppError("SHIPMENT_NOT_CLEARED", "Lô chưa thông quan, chưa lấy cont được", 409)
+        if not _has_discharged(db, order.container_id):
+            raise AppError("NOT_DISCHARGED", "Container chưa được ghi nhận dỡ khỏi tàu", 409)
+        # mốc container trước: sai thứ tự / giờ thì lỗi ngay, chưa ghi gì
+        add_container_event(db, order.container_id, "GATE_OUT_FULL", call.occurred_at, call.user)
+    return _finish_driver_step(db, call, _driver_event(db, call))
+
+
+def complete_order(db: Session, call: DriverCall) -> DriverResult:
+    """Hoàn tất lệnh: lấy hàng đầy có thể đẩy lô sang AT_WAREHOUSE, trả vỏ ghi EMPTY_RETURNED (rồi có thể COMPLETED)."""
+    if call.order.kind == "RETURN_EMPTY":
+        add_container_event(db, call.order.container_id, "EMPTY_RETURNED", call.occurred_at, call.user)
+    result = _finish_driver_step(db, call, _driver_event(db, call))
+    try_auto_advance(db, call.shipment)
+    return result

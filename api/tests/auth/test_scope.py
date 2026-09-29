@@ -1,10 +1,13 @@
+from types import SimpleNamespace
+
 import pytest
 from sqlalchemy import select
 
-from app.auth.scope import get_scoped_or_404, scope_shipments
-from app.catalog.models import Customer
+from app.auth.scope import get_scoped_or_404, scope_shipments, scope_trucking
+from app.catalog.models import Customer, Driver, Truck, Trucker
 from app.envelope import AppError
 from app.shipments.models import Container, Shipment
+from app.trucking.models import TruckingOrder
 
 
 @pytest.mark.parametrize("role", ["ADMIN", "DOCS", "DISPATCH", "ACCOUNTANT"])
@@ -50,3 +53,24 @@ def test_container_scoped_through_shipment(db, make_user, make_shipment, make_co
     assert get_scoped_or_404(db, Container, mine.id, customer_user).id == mine.id
     with pytest.raises(AppError):
         get_scoped_or_404(db, Container, theirs.id, customer_user)
+
+
+def test_driver_sees_only_own_trucking_orders(db, make_user, make_shipment, make_container, make_trucking_order):
+    driver_a, driver_b, admin = make_user("DRIVER"), make_user("DRIVER"), make_user("ADMIN")
+
+    def team(user):
+        driver = db.get(Driver, user.driver_id)
+        truck = Truck(trucker_id=driver.trucker_id, plate_no=f"51X-{user.id:05d}")
+        db.add(truck)
+        db.flush()
+        return SimpleNamespace(trucker=db.get(Trucker, driver.trucker_id), truck=truck, driver=driver)
+
+    shipment = make_shipment(status="CLEARED")
+    order_a = make_trucking_order(make_container(shipment), events=("ASSIGNED",), team=team(driver_a))
+    order_b = make_trucking_order(make_container(shipment), events=("ASSIGNED",), team=team(driver_b))
+
+    def ids(user):
+        return set(db.scalars(scope_trucking(select(TruckingOrder.id), user)))
+
+    assert ids(driver_a) == {order_a.id} and ids(driver_b) == {order_b.id}
+    assert ids(admin) == {order_a.id, order_b.id}

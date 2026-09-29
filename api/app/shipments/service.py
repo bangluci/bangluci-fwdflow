@@ -5,7 +5,7 @@ Các hàm không commit; route commit sau khi ghi audit cùng transaction.
 
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.ai.extraction.discrepancies import unresolved_blocking_keys
@@ -196,22 +196,34 @@ def _cancel_trucking_orders(db: Session, shipment: Shipment, reason: str, actor:
         cancel_order(db, actor, order_id, f"Lô huỷ: {reason}")
 
 
+def _advance(db: Session, shipment: Shipment, to_status: str, reason: str) -> None:
+    record_transition(db, shipment, to_status, None, from_status=shipment.status, reason=reason)
+
+
+def _all_containers_have(db: Session, shipment: Shipment, count_sql: str, **params) -> bool:
+    total = db.scalar(select(func.count()).select_from(Container).where(Container.shipment_id == shipment.id))
+    return bool(total) and total == db.scalar(text(count_sql), {"shipment_id": shipment.id, **params})
+
+
 def try_auto_advance(db: Session, shipment: Shipment) -> bool:
     """Tự chuyển trạng thái lô khi điều kiện đã đủ; gọi sau mỗi thay đổi lệnh xe / container (lô đã bị khoá).
 
-    CLEARED → AT_WAREHOUSE: lô FCL có ít nhất một container và mọi container đã có lệnh PICKUP_FULL hoàn tất.
+    - CLEARED → AT_WAREHOUSE: lô FCL, mọi container đã có lệnh PICKUP_FULL hoàn tất.
+    - AT_WAREHOUSE → COMPLETED: chỉ lô CONTAINER_TO_DOOR, mọi container đã trả vỏ rỗng.
     """
-    if shipment.status != ShipmentStatus.CLEARED or shipment.load_type != "FCL":
-        return False
-    total = db.scalar(select(func.count()).select_from(Container).where(Container.shipment_id == shipment.id))
-    done = db.scalar(select(func.count(func.distinct(TruckingOrder.container_id))).where(
-        TruckingOrder.shipment_id == shipment.id, TruckingOrder.kind == "PICKUP_FULL",
-        TruckingOrder.status == "COMPLETED"))
-    if not total or total != done:
-        return False
-    record_transition(db, shipment, ShipmentStatus.AT_WAREHOUSE, None, from_status=shipment.status,
-                      reason="Tự chuyển: mọi container đã tới kho đích")
-    return True
+    moved = False
+    if shipment.status == ShipmentStatus.CLEARED and shipment.load_type == "FCL" and _all_containers_have(
+            db, shipment, "SELECT count(DISTINCT container_id) FROM trucking_orders WHERE shipment_id = :shipment_id "
+            "AND kind = 'PICKUP_FULL' AND status = 'COMPLETED'"):
+        _advance(db, shipment, ShipmentStatus.AT_WAREHOUSE, "Tự chuyển: mọi container đã tới kho đích")
+        moved = True
+    if shipment.status == ShipmentStatus.AT_WAREHOUSE and shipment.delivery_mode == "CONTAINER_TO_DOOR" and (
+            _all_containers_have(db, shipment, "SELECT count(*) FROM effective_container_milestones m "
+                                 "JOIN containers c ON c.id = m.container_id WHERE c.shipment_id = :shipment_id "
+                                 "AND m.kind = 'EMPTY_RETURNED'")):
+        _advance(db, shipment, ShipmentStatus.COMPLETED, "Tự chuyển: mọi container đã trả rỗng")
+        moved = True
+    return moved
 
 
 def cancel_shipment(db: Session, shipment_id: int, reason: str, actor: User) -> Shipment:

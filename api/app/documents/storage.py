@@ -75,3 +75,16 @@ def save_upload(upload: Upload) -> StoredFile:
     finally:
         raw.unlink(missing_ok=True)
         cleaned.unlink(missing_ok=True)
+
+
+PHOTO_MIMES = ("image/jpeg", "image/png")
+
+
+def save_photo(upload: Upload) -> StoredFile:
+    """Ảnh bằng chứng của tài xế: chỉ JPEG / PNG (PDF bị từ chối trước khi ghi file), còn lại như `save_upload`."""
+    head = upload.file.read(16)
+    upload.file.seek(0)
+    mime = sniff_mime(head)
+    if mime is not None and mime not in PHOTO_MIMES:
+        raise AppError("PHOTO_MUST_BE_IMAGE", "Chỉ nhận ảnh JPEG hoặc PNG làm bằng chứng", 400)
+    return save_upload(upload)

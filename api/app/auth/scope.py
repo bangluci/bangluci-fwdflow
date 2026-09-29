@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.auth.models import Role, User
 from app.envelope import AppError
 from app.shipments.models import Container, Shipment
+from app.trucking.models import TruckingOrder
 
 
 def scope_shipments(stmt: Select, user: User) -> Select:
@@ -28,3 +29,13 @@ def get_scoped_or_404(db: Session, model: type[Shipment] | type[Container], obj_
     if obj is None:
         raise AppError("NOT_FOUND", "Không tìm thấy", 404)
     return obj
+
+
+def scope_trucking(stmt: Select, user: User) -> Select:
+    """Lệnh xe: tài xế chỉ thấy lệnh của mình, khách chỉ thấy lệnh thuộc lô của mình, nội bộ thấy hết."""
+    if user.role == Role.DRIVER:
+        return stmt.where(TruckingOrder.driver_id == user.driver_id) if user.driver_id else stmt.where(false())
+    if user.role == Role.CUSTOMER:
+        own = select(Shipment.id).where(Shipment.customer_id == user.customer_id)
+        return stmt.where(TruckingOrder.shipment_id.in_(own))
+    return stmt

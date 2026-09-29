@@ -11,6 +11,7 @@ from app.catalog.router import router as catalog_router
 from app.config import get_settings
 from app.db import get_db
 from app.documents.router import router as documents_router
+from app.driver.router import router as driver_router
 from app.envelope import install_handlers, ok
 from app.freetime.router import router as freetime_router
 from app.notifications import models as _notification_models  # noqa: F401  đăng ký AUDIT_FIELDS cho bộ lọc audit
@@ -28,7 +29,8 @@ def health(db: Session = Depends(get_db)) -> dict:
 
 
 ROUTERS = [health_router, auth_router, audit_router, catalog_router, shipments_router, containers_router,
-           documents_router, ai_router, extraction_router, freetime_router, trucking_router]
+           documents_router, ai_router, extraction_router, freetime_router, trucking_router,
+           driver_router]
 
 
 def create_app() -> FastAPI:
