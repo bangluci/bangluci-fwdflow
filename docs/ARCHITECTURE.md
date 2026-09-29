@@ -15,8 +15,12 @@ Tài liệu sống — cập nhật tại chỗ khi kiến trúc đổi. Thiết
 - Lô hàng: state machine cạnh tay và mốc container — [state.py](../api/app/shipments/state.py) `current`; mọi đổi trạng thái mở đầu bằng khoá lô — [service.py](../api/app/shipments/service.py#L43) `current`
 - Mốc là event append-only, chỉnh giờ bằng `RETIME`, huỷ bằng `VOID`; trạng thái hiệu lực suy ra từ event — [events.py](../api/app/events.py#L40) `current`, [containers.py](../api/app/shipments/containers.py#L106) `current`
 - Chứng từ lưu theo SHA-256, làm sạch PDF / ảnh trước khi nhận, checklist bắt buộc chặn `CLEARED` — [storage.py](../api/app/documents/storage.py#L55) `current`, [sanitize.py](../api/app/documents/sanitize.py#L57) `current`, [checklist.py](../api/app/documents/checklist.py#L20) `current`
-- Worker nền (trích xuất AI, email nhắc hạn) chạy chung codebase, không Redis — [worker/main.py](../api/app/worker/main.py) `decided`
-- Free time tính bằng function SQL `container_freetime(as_of)` dùng chung cho API, email, AI #3 — [0006_freetime.py](../api/migrations/versions/0006_freetime.py) `decided`
+- Mọi lời gọi Claude đi qua một lớp dùng chung: structured output, phân loại lỗi tạm thời / vĩnh viễn, record / replay cho test — [claude.py](../api/app/ai/claude.py#L178) `current`
+- Giới hạn lượt theo user, trần token theo ngày, cờ tắt AI — [guard.py](../api/app/ai/guard.py#L72) `current`
+- Worker nền lấy job trích xuất bằng `SKIP LOCKED`, thử lại 30s / 2 phút / 5 phút rồi `FAILED`, trả job kẹt về hàng đợi — [worker/main.py](../api/app/worker/main.py#L23) `current`; nhắc hạn qua email `decided`
+- AI #1: render trang → Claude → kiểm trường → người duyệt chọn trường ghi vào lô, audit ghi nguồn AI — [extract.py](../api/app/ai/extraction/extract.py#L84) `current`, [apply.py](../api/app/ai/extraction/apply.py#L183) `current`, [review.py](../api/app/ai/extraction/review.py#L77) `current`
+- Đối chiếu chứng từ là luật xác định trên bản đã duyệt; sai lệch mức chặn giữ lô trước `CUSTOMS_CLEARING` — [crosscheck.py](../api/app/ai/extraction/crosscheck.py#L133) `current`
+- Free time tính bằng function SQL `container_freetime(as_of)` (không lưu), dùng chung cho API, email, AI #3 qua view `nlq.v_container_freetime` — [0006_freetime.py](../api/migrations/versions/0006_freetime.py#L89) `current`
 - AI #3 chạy SQL trên LOGIN role `nlq_ops` / `nlq_finance`, transaction read-only luôn rollback — [ai/nlq/](../api/app/ai/nlq/) `decided`
 - Web Next.js 16 (App Router), không dùng `rewrites`; hướng giao diện đang chờ duyệt — nghiên cứu front-end (biên bản đang chờ duyệt) `building`
 

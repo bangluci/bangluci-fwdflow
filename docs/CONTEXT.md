@@ -9,6 +9,9 @@ Tài liệu sống — cập nhật khi xong một mốc trong [plan](plans/2026
 - Tuần 2 (backend): đăng nhập + phiên, phân quyền, audit, danh mục 7 loại, seed demo — [tests/auth/](../api/tests/auth/) `current`, [seed_demo.py](../api/scripts/seed_demo.py) `current`
 - Tuần 3 (backend): lô hàng, dòng hàng, tờ khai, container + mốc, state machine, tìm kiếm — [tests/shipments/](../api/tests/shipments/) `current`
 - Tuần 4 (backend): chứng từ (upload làm sạch, thay thế bản cũ, checklist chặn `CLEARED`) — [tests/documents/](../api/tests/documents/) `current`
+- Tuần 5–6 (AI #1, backend): lớp gọi Claude, hàng đợi trích xuất + worker, duyệt / từ chối / thử lại, đối chiếu chứng từ và chặn `CUSTOMS_CLEARING`; chạy bằng `LLM_MODE=replay` — [tests/extraction/](../api/tests/extraction/) `current`, [tests/ai/](../api/tests/ai/) `current`
+- Tuần 7 (free time, backend): quy tắc theo phiên bản, override theo lô, hàm SQL đồng hồ DEM/DET, danh sách đồng hồ và lọc lô theo mức — [tests/freetime/](../api/tests/freetime/) `current`
+- Chưa làm: bộ chứng từ đánh giá `eval/`, email nhắc hạn, điều xe, app tài xế, giao nội địa, tài chính, AI #2, AI #3 và toàn bộ giao diện web `building`
 - Giao diện web chưa làm: đang chờ duyệt hướng sau khi nghiên cứu — nghiên cứu front-end (biên bản đang chờ duyệt) `building`
 - Chưa có `ANTHROPIC_API_KEY` trên máy dev → AI chạy `LLM_MODE=replay`; cần có key trước khi đo kết quả AI thật — [.env.example](../.env.example) `current`
 - Chưa có remote GitHub (chờ `gh auth login`) `building`
@@ -24,4 +27,4 @@ Tài liệu sống — cập nhật khi xong một mốc trong [plan](plans/2026
 
 | Claim | Ý định | Trạng thái | Bằng chứng |
 | --- | --- | --- | --- |
-| Plan `docs/plans/2026-09-24-forwarder-door-to-door-ai.md` là nguồn sự thật | `current` | Chưa có file: nội dung nháp còn ở kết quả workflow, tuần 7–9 đang viết bù | [AGENTS.md](../AGENTS.md) trỏ tới file này |
+| Plan `docs/plans/2026-09-24-forwarder-door-to-door-ai.md` là nguồn sự thật | `current` | File đã ghép đủ 16 tuần nhưng chưa commit, chờ người dùng duyệt | [AGENTS.md](../AGENTS.md) trỏ tới file này |
