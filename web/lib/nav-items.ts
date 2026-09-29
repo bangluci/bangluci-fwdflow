@@ -29,16 +29,16 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Vận hành",
     items: [
       { href: "/dashboard", label: "Tổng quan", action: "dashboard.read", icon: LayoutDashboard, ready: true },
-      { href: "/shipments", label: "Lô hàng", action: "shipment.read", icon: Package, ready: false },
-      { href: "/freetime", label: "Free time", action: "freetime.read", icon: Timer, ready: false },
-      { href: "/trucking", label: "Điều xe", action: "transport.write", icon: Truck, ready: false },
-      { href: "/last-mile", label: "Giao nội địa", action: "transport.write", icon: MapPin, ready: false },
+      { href: "/shipments", label: "Lô hàng", action: "shipment.read", icon: Package, ready: true },
+      { href: "/freetime", label: "Free time", action: "freetime.read", icon: Timer, ready: true },
+      { href: "/trucking", label: "Điều xe", action: "transport.write", icon: Truck, ready: true },
+      { href: "/last-mile", label: "Giao nội địa", action: "transport.write", icon: MapPin, ready: true },
     ],
   },
   {
     label: "Tài chính & AI",
     items: [
-      { href: "/reports", label: "Báo cáo", action: "finance.read", icon: ChartColumn, ready: false },
+      { href: "/reports", label: "Báo cáo", action: "finance.read", icon: ChartColumn, ready: true },
       { href: "/assistant", label: "Trợ lý", action: "assistant.ask", icon: MessageSquareText, ready: false },
     ],
   },
@@ -47,7 +47,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/catalog/customers", label: "Danh mục", action: "catalog.read", icon: BookUser, ready: true },
       { href: "/users", label: "Người dùng", action: "users.manage", icon: Users, ready: true },
-      { href: "/audit", label: "Nhật ký", action: "audit.read", icon: ScrollText, ready: false },
+      { href: "/audit", label: "Nhật ký", action: "audit.read", icon: ScrollText, ready: true },
     ],
   },
 ];

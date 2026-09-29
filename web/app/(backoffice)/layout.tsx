@@ -41,7 +41,8 @@ export default function BackofficeLayout({ children }: { children: React.ReactNo
   }
   if (!me || !isInternal(me.role)) return <div className="m-auto text-muted-foreground">Đang tải…</div>;
 
-  const section = NAV_GROUPS.flatMap((g) => g.items).find((item) => isActive(item, pathname))?.label;
+  // Màn duyệt AI không có mục riêng trên thanh bên: thuộc nhóm Lô hàng.
+  const section = pathname.startsWith("/extractions") ? "Lô hàng" : NAV_GROUPS.flatMap((g) => g.items).find((item) => isActive(item, pathname))?.label;
   return (
     <div className="min-h-screen pl-60">
       <Sidebar permissions={me.permissions} />

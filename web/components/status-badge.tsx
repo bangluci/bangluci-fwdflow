@@ -15,8 +15,11 @@ const TONES = {
 
 export type Tone = keyof typeof TONES;
 
-export function StatusBadge({ tone, children, className }: { tone: Tone; children: React.ReactNode; className?: string }) {
-  const { icon: Icon, className: toneClass } = TONES[tone];
+type Props = { tone: Tone; children: React.ReactNode; className?: string; icon?: LucideIcon };
+
+export function StatusBadge({ tone, children, className, icon }: Props) {
+  const { icon: DefaultIcon, className: toneClass } = TONES[tone];
+  const Icon = icon ?? DefaultIcon;
   return (
     <span
       className={cn(

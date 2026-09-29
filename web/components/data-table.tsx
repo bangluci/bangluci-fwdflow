@@ -41,12 +41,16 @@ type Props<T extends RowData> = {
   empty: { none: Empty; filtered: Empty };
   filtered?: boolean;
   getRowId?: (row: T) => string;
+  /** Bấm cả dòng để mở chi tiết (phần tử liên kết trong dòng vẫn là đích bàn phím). */
+  onRowClick?: (row: T) => void;
+  /** Lớp CSS thêm cho dòng (ví dụ nền đỏ nhạt cho dòng quá hạn). */
+  rowClassName?: (row: T) => string | undefined;
 };
 
 const NO_DATA: never[] = [];
 
 /** Bảng dày dùng chung: hàng 40px, tiêu đề dính đầu, sắp xếp theo cột, phân trang 50 dòng. */
-export function DataTable<T extends RowData>({ columns, data, loading, error, onRetry, empty, filtered, getRowId }: Props<T>) {
+export function DataTable<T extends RowData>({ columns, data, loading, error, onRetry, empty, filtered, getRowId, onRowClick, rowClassName }: Props<T>) {
   const table = useTable({
     features,
     columns,
@@ -120,7 +124,11 @@ export function DataTable<T extends RowData>({ columns, data, loading, error, on
                   </TableRow>
                 ))
               : rows.map((row) => (
-                  <TableRow key={row.id} className="h-10 hover:bg-accent/60">
+                  <TableRow
+                    key={row.id}
+                    className={cn("h-10 hover:bg-accent/60", onRowClick && "cursor-pointer", rowClassName?.(row.original))}
+                    onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                  >
                     {row.getAllCells().map((cell) => (
                       <TableCell key={cell.id} className={cn("py-0")}>
                         <table.FlexRender cell={cell} />
