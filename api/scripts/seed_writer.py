@@ -8,6 +8,8 @@ from fpdf import FPDF
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from app.ai.extraction.models import Extraction
+from app.ai.extraction.validate import validate_fields
 from app.auth.models import User
 from app.catalog.models import Carrier, Customer, Driver, Port, Truck, Warehouse
 from app.documents.models import DEFAULT_VISIBLE_TYPES, DocType, Document
@@ -202,6 +204,44 @@ def _driver_scenario(db: Session, cat: _Catalog, as_of: date, written: list[tupl
     return made
 
 
+def _hbl_result(shipment: Shipment, containers: list[Container]) -> dict:
+    """Kết quả AI mẫu cho HBL: có chỗ khác dữ liệu lô (để thử "giữ cũ / dùng mới") và một container sai check digit."""
+    rows = [{"container_no": c.container_no, "seal_no": f"SL{c.id:05d}", "container_type_raw": "45G1",
+             "container_type": c.container_type, "packages": 10, "gross_weight_kg": "1000.500"} for c in containers]
+    if rows:
+        number = rows[-1]["container_no"]
+        rows[-1]["container_no"] = number[:-1] + str((int(number[-1]) + 1) % 10)
+    return {
+        "detected_doc_type": "HBL", "legible": True, "suspicious_content": False, "suspicious_note": None,
+        "bl_no": shipment.hbl_no, "carrier_name": "MAERSK LINE", "shipper": "SHANGHAI DEMO TRADING CO",
+        "consignee": "CONG TY TNHH MINH LONG", "notify_party": None, "vessel": "EVER DEMO", "voyage": "019E",
+        "pol": "CNSHA", "pod": "VNSGN", "onboard_date": "2026-09-10",
+        "total_packages": (shipment.total_packages or 0) + 3, "package_unit": "CTNS",
+        "gross_weight_kg": "3001.500", "containers": rows}
+
+
+def _seed_extractions(db: Session, written: list[tuple[Shipment, list[Container]]], as_of: date) -> None:
+    """Ba bản trích xuất mẫu trên lô ARRIVED đầu tiên: chờ duyệt (có trường lỗi), đọc lỗi, đang đọc."""
+    target = next(((s, cs) for s, cs in written if s.status == "ARRIVED" and cs), None)
+    if target is None:
+        return
+    shipment, containers = target
+    docs = {d.doc_type: d for d in db.scalars(select(Document).where(Document.shipment_id == shipment.id))}
+    result = _hbl_result(shipment, containers)
+    issues = [i.as_dict() for i in validate_fields("HBL", result, docs["HBL"].pages)]
+    when = vn(as_of, 8)
+    common = {"shipment_id": shipment.id}
+    db.add_all([
+        Extraction(document_id=docs["HBL"].id, doc_type="HBL", status="REVIEW", attempts=1, result=result,
+                   field_issues=issues, detected_doc_type="HBL", processed_at=when, **common),
+        Extraction(document_id=docs["INVOICE"].id, doc_type="INVOICE", status="FAILED", attempts=4,
+                   error_code="AI_UNAVAILABLE", error_message="Dịch vụ AI tạm thời không phản hồi, hãy thử lại",
+                   **common),
+        Extraction(document_id=docs["PACKING_LIST"].id, doc_type="PACKING_LIST", status="PROCESSING", attempts=1,
+                   locked_at=when, **common),
+    ])
+
+
 def write_dataset(db: Session, dataset: Dataset) -> dict[str, int]:
     """Ghi toàn bộ dữ liệu; trả bộ đếm để in ra. Danh mục + tài khoản phải có sẵn (`seed_demo.seed`)."""
     seed_free_time_rules(db)
@@ -216,6 +256,7 @@ def write_dataset(db: Session, dataset: Dataset) -> dict[str, int]:
         written.append((shipment, containers))
     db.flush()
     _add_demdet_costs(db, cat, dataset.as_of, [s for s, _ in written])
+    _seed_extractions(db, written, dataset.as_of)
     driver_orders = _driver_scenario(db, cat, dataset.as_of, written)
     db.flush()
     return {"shipments": len(written), "containers": dataset.container_count, "last_mile_orders": dataset.order_count,

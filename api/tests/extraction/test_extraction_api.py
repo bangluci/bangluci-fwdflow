@@ -69,3 +69,14 @@ def test_accountant_and_customer_forbidden(client, login_as, make_extraction):
     client.cookies.clear()
     login_as("CUSTOMER")
     assert client.get(f"/api/extractions/{extraction.id}").status_code == 403
+
+
+def test_list_shipment_extractions_returns_statuses(client, login_as, make_extraction):
+    login_as("DOCS")
+    extraction = make_extraction()
+    res = client.get(f"/api/shipments/{extraction.shipment_id}/extractions")
+    assert res.status_code == 200
+    assert res.json()["data"] == [{"id": extraction.id, "document_id": extraction.document_id,
+                                   "doc_type": extraction.doc_type, "status": extraction.status}]
+    login_as("DISPATCH")
+    assert client.get(f"/api/shipments/{extraction.shipment_id}/extractions").status_code == 403

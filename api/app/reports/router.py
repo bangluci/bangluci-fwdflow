@@ -22,6 +22,12 @@ Db = Annotated[Session, Depends(get_db)]
 FinanceReader = Annotated[User, Depends(require("finance.read"))]
 DashboardReader = Annotated[User, Depends(require("dashboard.read"))]
 
+_QUEUE_COUNTS = """
+SELECT (SELECT count(*) FROM extractions WHERE status = 'REVIEW'),
+       (SELECT count(*) FROM extractions WHERE status = 'FAILED'),
+       (SELECT count(*) FROM trucking_orders WHERE status = 'PLANNED'),
+       (SELECT count(*) FROM last_mile_orders WHERE status = 'FAILED')
+"""
 _LEVEL_COUNTS = """
 SELECT count(DISTINCT container_id) FILTER (WHERE container_level = 'YELLOW'),
        count(DISTINCT container_id) FILTER (WHERE container_level = 'RED')
@@ -59,7 +65,10 @@ def dashboard(db: Db, user: DashboardReader) -> dict:
     active = db.scalar(select(func.count()).select_from(Shipment).where(
         Shipment.status.notin_((ShipmentStatus.COMPLETED, ShipmentStatus.CANCELLED))))
     yellow, red = db.execute(text(_LEVEL_COUNTS)).one()
+    review, extraction_failed, unassigned, delivery_failed = db.execute(text(_QUEUE_COUNTS)).one()
     data = {"as_of": today, "active_shipments": active, "containers_yellow": yellow, "containers_red": red,
+            "extractions_review": review, "extractions_failed": extraction_failed, "trucking_unassigned": unassigned,
+            "last_mile_failed": delivery_failed,
             "do_expiring": [{"shipment_id": s.id, "code": s.code, "do_valid_until": s.do_valid_until}
                             for s in do_expiring_shipments(db, today)]}
     if can(user.role, "finance.read"):

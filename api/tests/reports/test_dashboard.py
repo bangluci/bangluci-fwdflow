@@ -72,3 +72,17 @@ def test_dashboard_forbidden_for_customer_driver(client, login_as, role):
     login_as(role)
     res = client.get(URL)
     assert res.status_code == 403 and res.json()["error"]["code"] == "FORBIDDEN"
+
+
+def test_dashboard_queue_counts(client, login_as, make_extraction, make_shipment, make_container, make_trucking_order,
+                                make_last_mile_order):
+    login_as("DOCS")
+    make_extraction(status="REVIEW")
+    make_extraction(status="FAILED")
+    make_extraction(status="PENDING")
+    shipment = make_shipment(status="DELIVERING", total_packages=10)
+    make_trucking_order(make_container(make_shipment(status="CLEARED")))  # PLANNED chưa gán
+    make_last_mile_order(shipment, 2, events=("CREATED", "ASSIGNED", "PICKED_UP", "FAILED"))
+    data = client.get(URL).json()["data"]
+    counts = ("extractions_review", "extractions_failed", "trucking_unassigned", "last_mile_failed")
+    assert [data[k] for k in counts] == [1, 1, 1, 1]

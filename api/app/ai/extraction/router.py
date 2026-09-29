@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 from pydantic import BaseModel, StringConstraints
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.extraction import review
@@ -41,6 +42,14 @@ def load_extraction(db: Session, extraction_id: int, user: User) -> Extraction:
         raise AppError("NOT_FOUND", "Không tìm thấy bản trích xuất", 404)
     get_scoped_or_404(db, Shipment, extraction.shipment_id, user)
     return extraction
+
+
+@router.get("/shipments/{shipment_id}/extractions")
+def list_shipment_extractions(shipment_id: int, db: Db, user: Reviewer) -> dict:
+    """Bản trích xuất của các chứng từ trong lô (mới nhất trước), để tab Chứng từ biết chứng từ nào chờ duyệt."""
+    get_scoped_or_404(db, Shipment, shipment_id, user)
+    rows = db.scalars(select(Extraction).where(Extraction.shipment_id == shipment_id).order_by(Extraction.id.desc()))
+    return ok([{"id": e.id, "document_id": e.document_id, "doc_type": e.doc_type, "status": e.status} for e in rows])
 
 
 @router.get("/extractions/{extraction_id}")
