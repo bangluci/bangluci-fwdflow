@@ -21,7 +21,7 @@ Tài liệu sống — cập nhật khi xong một mốc trong [plan](plans/2026
 - E2E Playwright: 49 test (desktop 39, mobile 10) phủ đăng nhập, lô hàng, free time + quy tắc, điều xe, giao nội địa (tách 6+4, vượt quỹ kiện, nhận LCL, đóng lô, nhãn PDF), app tài xế (có/không GPS, mất mạng, huỷ event), tra cứu công khai, phân quyền menu theo vai trò, cổng khách — [web/e2e/](../web/e2e/) `current`
 - Chưa làm: bộ chứng từ đánh giá `eval/`, AI #2 (gợi ý mã HS) và AI #3 (hỏi đáp) cùng màn trợ lý, triển khai `building`
 - Chưa có `ANTHROPIC_API_KEY` trên máy dev → AI chạy `LLM_MODE=replay`; cần có key trước khi đo kết quả AI thật — [.env.example](../.env.example) `current`
-- Chưa có remote GitHub (chờ `gh auth login`) `building`
+- Mã nguồn đã push lên repo công khai `https://github.com/bangluci/bangluci-fwdflow` (nhánh `main`); plan và biên bản nghiên cứu chưa commit vì chờ duyệt `current`
 
 ## Quyết định gần đây
 
