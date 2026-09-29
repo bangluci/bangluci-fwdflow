@@ -57,7 +57,8 @@ class Settings(BaseSettings):
     # AI #2: mô hình embedding cục bộ (tải một lần vào models/bge-m3, không commit) và ngưỡng abstain theo cosine
     embed_model_dir: Path = REPO_ROOT / "models" / "bge-m3"
     embed_preload: bool = False
-    hs_tau: float = 0.5
+    # Tạm: cosine top-1 của mô tả thật 0,43–0,60, của chuỗi vô nghĩa 0,38–0,46; Task 12.6b chọn lại trên dev
+    hs_tau: float = 0.35
     claude_effort_extraction: Literal["low", "medium", "high", "xhigh", "max"] = "high"
     extraction_max_tokens: int = 8000
     llm_fixture_dir: Path = REPO_ROOT / "api" / "tests" / "fixtures" / "llm"

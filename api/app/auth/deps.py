@@ -31,6 +31,7 @@ def require(action: str) -> Callable[..., User]:
             raise AppError("FORBIDDEN", "Bạn không có quyền thực hiện thao tác này", 403)
         return user
 
+    dependency.action = action  # type: ignore[attr-defined]  # để test ma trận quyền đọc được từ cây dependency
     return dependency
 
 
