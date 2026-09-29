@@ -13,6 +13,15 @@
 		-Server
 	}
 
+	# Trang tra cứu công khai: không lập chỉ mục, không gửi referrer, không cache (defer để ghi đè header chung ở trên)
+	@public path /track/* /api/public/*
+	header @public {
+		Referrer-Policy "no-referrer"
+		X-Robots-Tag "noindex"
+		Cache-Control "no-store"
+		defer
+	}
+
 	handle /api/* {
 		reverse_proxy {$API_UPSTREAM} {
 			header_up X-Forwarded-For {remote_host}
