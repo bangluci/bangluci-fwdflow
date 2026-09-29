@@ -55,9 +55,11 @@ def ft(db, make_shipment, make_container):
         return made
 
     def container(status="ARRIVED", eta="2026-11-01", carrier_code=RCL, port_code="VNSGN", container_type="40HC",
-                  milestones=None, load_type="FCL"):
+                  milestones=None, load_type="FCL",
+                  **shipment_fields):
         shipment = make_shipment(status=status, load_type=load_type, carrier_id=carrier(carrier_code).id,
-                                 pod_port_id=port(port_code).id, eta=datetime.fromisoformat(eta).date())
+                                 pod_port_id=port(port_code).id, eta=datetime.fromisoformat(eta).date(),
+                                 **shipment_fields)
         return make_container(shipment, container_type=container_type,
                               milestones={kind: at(day) for kind, day in (milestones or {}).items()})
 

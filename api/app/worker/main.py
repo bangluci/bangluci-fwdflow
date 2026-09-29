@@ -1,5 +1,6 @@
 """Worker nền (process riêng, cùng codebase, không Redis): nhận job trích xuất bằng SKIP LOCKED, thử lại có backoff."""
 
+import argparse
 import logging
 import time
 from datetime import UTC, datetime, timedelta
@@ -12,12 +13,14 @@ from app.ai.extraction.extract import fail_extraction, run_extraction
 from app.ai.extraction.models import MAX_ATTEMPTS, Extraction, ExtractionStatus, assert_extraction_transition
 from app.ai.guard import ai_enabled
 from app.db import SessionLocal
+from app.notifications.reminder import send_due_reminders
 
 log = logging.getLogger("fwdflow.worker")
 
 BACKOFF = (timedelta(seconds=30), timedelta(minutes=2), timedelta(minutes=5))
 STUCK_AFTER = timedelta(minutes=10)
 IDLE_SLEEP_SECONDS = 2
+REMINDER_POLL_SECONDS = 60
 
 
 def claim_extraction_job(db: Session, now: datetime) -> Extraction | None:
@@ -83,19 +86,43 @@ def recover_stuck_extractions(db: Session, now: datetime) -> int:
     return count
 
 
-def main() -> None:
+def drain_extractions(db: Session, now: datetime) -> None:
+    recover_stuck_extractions(db, now)
+    while (job := claim_extraction_job(db, now)) is not None:
+        process_job(db, job, now)
+
+
+def _aware_iso(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        raise argparse.ArgumentTypeError("--now phải có múi giờ, ví dụ 2026-11-25T08:00:00+07:00")
+    return parsed
+
+
+def main(argv: list[str] | None = None, session_factory=SessionLocal) -> int:
+    parser = argparse.ArgumentParser(description="Worker nền FwdFlow: trích xuất chứng từ và email nhắc hạn")
+    parser.add_argument("--once", action="store_true", help="chạy đúng một vòng rồi thoát")
+    parser.add_argument("--now", type=_aware_iso, help="thay giờ hiện tại (chạy tay ngoài giờ, test)")
+    args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     log.info("Worker khởi động")
+    next_reminder = 0.0
     while True:
-        now = datetime.now(UTC)
-        with SessionLocal() as db:
-            recover_stuck_extractions(db, now)
-            job = claim_extraction_job(db, now)
-            if job is not None:
-                process_job(db, job, now)
-                continue
+        now = args.now or datetime.now(UTC)
+        try:
+            with session_factory() as db:
+                drain_extractions(db, now)
+                if args.once or time.monotonic() >= next_reminder:
+                    send_due_reminders(db, now)
+                    next_reminder = time.monotonic() + REMINDER_POLL_SECONDS
+        except Exception:
+            if args.once:
+                raise
+            log.exception("Vòng worker lỗi, thử lại ở vòng sau")
+        if args.once:
+            return 0
         time.sleep(IDLE_SLEEP_SECONDS)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import text
 
 from app.shipments.models import ContainerEvent
-from tests.freetime.conftest import MSK, RCL
+from tests.freetime_factories import MSK, RCL
 
 
 @pytest.fixture(autouse=True)

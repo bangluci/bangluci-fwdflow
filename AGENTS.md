@@ -24,6 +24,7 @@
 - Test API: `python -m uv run --directory api pytest -q` (Postgres thật, DB `fwdflow_test`, không mock DB)
 - Lint API: `python -m uv run --directory api ruff check .`
 - Chạy API: `python -m uv run --directory api uvicorn app.main:app --port 8000`
+- Worker (trích xuất + email nhắc hạn): `python -m uv run --directory api python -m app.worker.main [--once] [--now 2026-11-25T08:00:00+07:00]`
 - Web: `npm --prefix web run dev` · `npm --prefix web run build` · `npm --prefix web run lint`
 
 ## Quy ước riêng của repo
