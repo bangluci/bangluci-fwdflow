@@ -16,7 +16,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.main import app
 
-pytest_plugins = ["tests.shipment_factories"]
+pytest_plugins = ["tests.shipment_factories", "tests.extraction_factories"]
 
 API_DIR = Path(__file__).resolve().parents[1]
 
@@ -62,6 +62,14 @@ def client(db):
 
 
 TEST_PASSWORD = "Mat-khau-test-123"
+
+
+@pytest.fixture(autouse=True)
+def files_dir(tmp_path, monkeypatch):
+    """Mọi test ghi file upload vào thư mục tạm, không đụng data/files của repo."""
+    target = tmp_path / "files"
+    monkeypatch.setattr(get_settings(), "files_dir", target)
+    return target
 
 
 @pytest.fixture
