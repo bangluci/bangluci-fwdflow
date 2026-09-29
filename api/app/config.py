@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     claude_model_extraction: str = "claude-opus-5"
     claude_model_hs: str = "claude-opus-5"
     claude_model_nlq: str = "claude-opus-5"
+    claude_effort_extraction: Literal["low", "medium", "high", "xhigh", "max"] = "high"
+    extraction_max_tokens: int = 8000
+    llm_fixture_dir: Path = REPO_ROOT / "api" / "tests" / "fixtures" / "llm"
+    crosscheck_weight_tolerance: float = 0.005
+    consignee_similarity_threshold: float = 0.85
     ai_daily_token_budget: int = 2_000_000
     fx_usd_vnd: int = 25_400
 
