@@ -11,11 +11,13 @@ def client_ip(request: Request) -> str:
 
 
 def rate_key(ip: str) -> str:
-    """IPv4 theo /32, IPv6 theo /64."""
+    """IPv4 theo /32 (IPv4-mapped IPv6 quy về IPv4), IPv6 theo /64."""
     try:
         addr = ipaddress.ip_address(ip)
     except ValueError:
         return ip
+    if addr.version == 6 and addr.ipv4_mapped is not None:
+        return str(addr.ipv4_mapped)
     if addr.version == 6:
         return str(ipaddress.ip_network(f"{ip}/64", strict=False))
     return ip

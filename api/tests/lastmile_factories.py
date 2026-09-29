@@ -17,7 +17,7 @@ def make_last_mile_order(db, make_driver):
     Có event ASSIGNED / REASSIGNED thì đơn gắn với `driver` (mặc định tạo tài xế mới)."""
 
     def _make(shipment, packages: int = 1, events: tuple[str, ...] = ("CREATED",), driver=None,
-              planned_date=None, **fields) -> LastMileOrder:
+              planned_date=None, started_at: datetime | None = None, **fields) -> LastMileOrder:
         driver = driver or make_driver()
         order = LastMileOrder(
             shipment_id=shipment.id, tracking_code=fields.pop("tracking_code", new_tracking_code()),
@@ -27,7 +27,7 @@ def make_last_mile_order(db, make_driver):
             planned_date=planned_date or db.scalar(text("SELECT nlq_today()")), **fields)
         db.add(order)
         db.flush()
-        start = datetime.now(UTC) - timedelta(hours=len(events) + 1)
+        start = started_at or datetime.now(UTC) - timedelta(hours=len(events) + 1)
         rows = []
         for i, kind in enumerate(events):
             row = LastMileEvent(order_id=order.id, kind=kind, occurred_at=start + timedelta(minutes=i),

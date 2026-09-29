@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, FastAPI
+from fastapi import APIRouter, Depends, FastAPI, Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,7 @@ from app.documents.router import router as documents_router
 from app.driver.router import router as driver_router
 from app.envelope import install_handlers, ok
 from app.freetime.router import router as freetime_router
+from app.lastmile.public_router import router as public_router
 from app.lastmile.router import router as last_mile_router
 from app.notifications import models as _notification_models  # noqa: F401  đăng ký AUDIT_FIELDS cho bộ lọc audit
 from app.shipments.containers_router import router as containers_router
@@ -31,7 +32,7 @@ def health(db: Session = Depends(get_db)) -> dict:
 
 ROUTERS = [health_router, auth_router, audit_router, catalog_router, shipments_router, containers_router,
            documents_router, ai_router, extraction_router, freetime_router, trucking_router,
-           driver_router, last_mile_router]
+           driver_router, last_mile_router, public_router]
 
 
 def create_app() -> FastAPI:
@@ -45,6 +46,17 @@ def create_app() -> FastAPI:
     )
     install_handlers(app)
     app.add_middleware(CsrfMiddleware)
+
+    @app.middleware("http")
+    async def public_headers(request: Request, call_next):
+        """Mọi phản hồi của `/api/public/` (cả lỗi) không cho lập chỉ mục, không gửi referrer, không cache."""
+        response = await call_next(request)
+        if request.url.path.startswith("/api/public/"):
+            response.headers["X-Robots-Tag"] = "noindex"
+            response.headers["Referrer-Policy"] = "no-referrer"
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
     for router in ROUTERS:
         app.include_router(router, prefix="/api")
     return app
