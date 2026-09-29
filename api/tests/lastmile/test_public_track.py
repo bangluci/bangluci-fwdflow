@@ -1,17 +1,22 @@
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app import ratelimit
 from app.lastmile import public_router
 from app.lastmile.public_router import ip_limiter, mask_name, not_found_limiter
 from app.main import app
 
 DELIVERED = ("CREATED", "ASSIGNED", "PICKED_UP", "DELIVERED")
+FROZEN_NOW = 1_700_000_000.0
 
 
 @pytest.fixture(autouse=True)
-def fresh_limiters():
+def fresh_limiters(monkeypatch):
+    # Đồng hồ limiter đứng yên: vòng lặp N request không thể vắt qua ranh giới cửa sổ cố định 60s.
+    monkeypatch.setattr(ratelimit, "time", SimpleNamespace(time=lambda: FROZEN_NOW))
     ip_limiter.reset()
     not_found_limiter.reset()
     yield
