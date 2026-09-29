@@ -28,6 +28,13 @@ def test_login_sets_host_cookie_and_me_works(client, make_user):
     assert me["data"]["id"] == user.id and me["data"]["role"] == "DOCS"
 
 
+def test_me_lists_role_permissions(client, login_as):
+    login_as("DOCS")
+    permissions = client.get("/api/auth/me").json()["data"]["permissions"]
+    assert "shipment.write" in permissions and "users.manage" not in permissions
+    assert permissions == sorted(permissions)
+
+
 def test_login_by_phone(client, make_user):
     make_user("DRIVER", email=None, phone="0901234567")
     assert _login(client, "0901 234 567").status_code == 200

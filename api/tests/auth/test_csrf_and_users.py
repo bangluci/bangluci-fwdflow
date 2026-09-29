@@ -52,5 +52,12 @@ def test_reset_password_audit_hides_hash(client, db, login_as, make_user):
 def test_create_customer_user_requires_customer(client, login_as):
     login_as("ADMIN")
     res = client.post("/api/users", json={"email": "c@x.vn", "full_name": "C", "role": "CUSTOMER",
-                                          "password": "12345678"})
+                                          "password": "Mat-khau-hop-le-1"})
+    assert res.status_code == 422
+
+
+def test_short_password_rejected(client, login_as, make_user):
+    target = make_user("DOCS")
+    login_as("ADMIN")
+    res = client.post(f"/api/users/{target.id}/reset-password", json={"password": "ngan-9-kt"})
     assert res.status_code == 422

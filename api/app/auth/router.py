@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.audit.service import record_audit, snapshot
 from app.auth.deps import current_user, require
 from app.auth.models import Role, User
+from app.auth.permissions import PERMISSIONS
 from app.auth.service import (
     ABSOLUTE_SESSION_TTL,
     authenticate,
@@ -68,7 +69,8 @@ def logout(request: Request, response: Response, db: DbSession = Depends(get_db)
 
 @router.get("/auth/me")
 def me(user: User = Depends(current_user)) -> dict:
-    return ok(user_out(user))
+    permissions = sorted(action for action, roles in PERMISSIONS.items() if user.role in roles)
+    return ok({**user_out(user), "permissions": permissions})
 
 
 class UserCreate(BaseModel):
@@ -78,7 +80,7 @@ class UserCreate(BaseModel):
     role: Role
     customer_id: int | None = None
     driver_id: int | None = None
-    password: str = Field(min_length=8, max_length=200)
+    password: str = Field(min_length=10, max_length=128)
 
     @model_validator(mode="after")
     def _check(self) -> "UserCreate":
@@ -100,7 +102,7 @@ class UserUpdate(BaseModel):
 
 
 class PasswordReset(BaseModel):
-    password: str = Field(min_length=8, max_length=200)
+    password: str = Field(min_length=10, max_length=128)
 
 
 def _get_user(db: DbSession, user_id: int) -> User:
