@@ -11,8 +11,8 @@ Tài liệu sống — cập nhật khi xong một mốc trong [plan](plans/2026
 - Tuần 4 (backend): chứng từ (upload làm sạch, thay thế bản cũ, checklist chặn `CLEARED`) — [tests/documents/](../api/tests/documents/) `current`
 - Tuần 5–6 (AI #1, backend): lớp gọi Claude, hàng đợi trích xuất + worker, duyệt / từ chối / thử lại, đối chiếu chứng từ và chặn `CUSTOMS_CLEARING`; chạy bằng `LLM_MODE=replay` — [tests/extraction/](../api/tests/extraction/) `current`, [tests/ai/](../api/tests/ai/) `current`
 - Tuần 7 (free time, backend): quy tắc theo phiên bản, override theo lô, hàm SQL đồng hồ DEM/DET, danh sách đồng hồ và lọc lô theo mức — [tests/freetime/](../api/tests/freetime/) `current`
-- Chưa làm: bộ chứng từ đánh giá `eval/`, email nhắc hạn, điều xe, app tài xế, giao nội địa, tài chính, AI #2, AI #3 và toàn bộ giao diện web `building`
-- Giao diện web chưa làm: đang chờ duyệt hướng sau khi nghiên cứu — nghiên cứu front-end (biên bản đang chờ duyệt) `building`
+- Chưa làm: bộ chứng từ đánh giá `eval/`, email nhắc hạn, điều xe, app tài xế, giao nội địa, tài chính, AI #2, AI #3 và các màn web còn lại (lô hàng, chứng từ, free time, điều xe, tài xế...) `building`
+- Giao diện web (hướng A, Bàn điều khiển chứng từ, đã chọn 2026-09-29): khung back-office theo vai trò, đăng nhập, bảng dùng chung, danh mục 7 loại, quản lý người dùng; đang chờ người dùng duyệt ảnh chụp — [web/app/(backoffice)/](../web/app/(backoffice)/layout.tsx) `building`
 - Chưa có `ANTHROPIC_API_KEY` trên máy dev → AI chạy `LLM_MODE=replay`; cần có key trước khi đo kết quả AI thật — [.env.example](../.env.example) `current`
 - Chưa có remote GitHub (chờ `gh auth login`) `building`
 

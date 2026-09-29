@@ -22,7 +22,9 @@ Tài liệu sống — cập nhật tại chỗ khi kiến trúc đổi. Thiết
 - Đối chiếu chứng từ là luật xác định trên bản đã duyệt; sai lệch mức chặn giữ lô trước `CUSTOMS_CLEARING` — [crosscheck.py](../api/app/ai/extraction/crosscheck.py#L133) `current`
 - Free time tính bằng function SQL `container_freetime(as_of)` (không lưu), dùng chung cho API, email, AI #3 qua view `nlq.v_container_freetime` — [0006_freetime.py](../api/migrations/versions/0006_freetime.py#L89) `current`
 - AI #3 chạy SQL trên LOGIN role `nlq_ops` / `nlq_finance`, transaction read-only luôn rollback — [ai/nlq/](../api/app/ai/nlq/) `decided`
-- Web Next.js 16 (App Router), không dùng `rewrites`; hướng giao diện đang chờ duyệt — nghiên cứu front-end (biên bản đang chờ duyệt) `building`
+- Web Next.js 16 (App Router), không dùng `rewrites`; client gọi `/api/*` cùng origin qua envelope — [api.ts](../web/lib/api.ts) `current`
+- Khung back-office: sidebar theo quyền lấy từ `GET /api/auth/me`, guard đăng nhập phía client — [layout.tsx](../web/app/(backoffice)/layout.tsx) `current`, [nav-items.ts](../web/lib/nav-items.ts) `current`
+- Bảng dữ liệu dùng chung (TanStack Table v9, hàng 40px, phân trang 50 dòng) và bộ trạng thái biểu tượng + chữ + màu — [data-table.tsx](../web/components/data-table.tsx) `current`, [status-badge.tsx](../web/components/status-badge.tsx) `current`
 
 ## Chưa khớp thực tế
 
