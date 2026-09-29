@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     nlq_ops_password: str = ""
     nlq_finance_password: str = ""
 
+    # Mật khẩu chung cho tài khoản demo (scripts/seed_demo.py, e2e); để trống thì seed từ chối chạy
+    seed_password: str = ""
+
     session_cookie_name: str = "__Host-sid"
     files_dir: Path = REPO_ROOT / "data" / "files"
 

@@ -19,6 +19,20 @@ npm --prefix web run dev
 
 Mở http://localhost:8088 (Caddy gom web + `/api`). Mailpit: http://127.0.0.1:8025.
 
+## Tài khoản demo
+
+Đặt `SEED_PASSWORD` (≥ 10 ký tự) trong `.env`, rồi:
+
+```powershell
+python -m uv run --directory api python -m scripts.seed_demo --reset --seed 1
+```
+
+Dữ liệu là mô phỏng. Mọi tài khoản dùng chung mật khẩu `SEED_PASSWORD`:
+
+- `admin@fwdflow.local`, `docs@fwdflow.local`, `dispatch@fwdflow.local`, `accountant@fwdflow.local`
+- `customer@fwdflow.local` (khách hàng số 1)
+- `0900000006` (tài xế, đăng nhập bằng SĐT)
+
 ## Test
 
 ```powershell
