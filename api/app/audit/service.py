@@ -51,7 +51,9 @@ def _clean(entity: str, data: dict | None, other: dict | None) -> dict | None:
     allowed = AUDIT_FIELDS[entity]
     out: dict[str, Any] = {}
     for key, value in data.items():
-        if key in SECRET_FIELDS:
+        if key == "_source":  # dấu vết nguồn AI ({path: ai_accepted | ai_edited}), luôn giữ
+            out[key] = value
+        elif key in SECRET_FIELDS:
             if other is None or other.get(key) != value:
                 out[key] = "<changed>"
         elif key in PII_FIELDS and key in allowed:

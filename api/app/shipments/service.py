@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.ai.extraction.discrepancies import unresolved_blocking_keys
 from app.ai.extraction.models import Extraction, ExtractionStatus, assert_extraction_transition
 from app.audit.service import record_audit, snapshot
 from app.auth.models import User
@@ -142,6 +143,11 @@ def _guard_transition(db: Session, shipment: Shipment, to_status: str) -> None:
         if missing:
             labels = ", ".join(IN_TRANSIT_FIELD_LABELS[key] for key in missing)
             raise AppError("MISSING_FIELDS", f"Còn thiếu: {labels}", 409)
+    if to_status == ShipmentStatus.CUSTOMS_CLEARING:
+        keys = unresolved_blocking_keys(db, shipment)
+        if keys:
+            raise AppError("UNRESOLVED_DISCREPANCY", "Còn sai lệch chứng từ chưa xử lý: " + ", ".join(keys), 409,
+                           {"keys": keys})
     if to_status == ShipmentStatus.CLEARED:
         if _declarations_block_clearance(db, shipment):
             raise AppError("DECLARATION_NOT_CLEARED",
