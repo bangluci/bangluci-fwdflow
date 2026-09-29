@@ -16,6 +16,8 @@ from app.config import get_settings
 from app.db import get_db
 from app.main import app
 
+pytest_plugins = ["tests.shipment_factories"]
+
 API_DIR = Path(__file__).resolve().parents[1]
 
 
