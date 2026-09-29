@@ -40,4 +40,5 @@ Dữ liệu là mô phỏng. Mọi tài khoản dùng chung mật khẩu `SEED_P
 ```powershell
 python -m uv run --directory api pytest -q
 npm --prefix web run lint
+npm --prefix web run test:e2e   # Playwright; stack chạy ở :8088, API với AI_EXTERNAL_ENABLED=false
 ```

@@ -26,6 +26,7 @@
 - Chạy API: `python -m uv run --directory api uvicorn app.main:app --port 8000`
 - Worker (trích xuất + email nhắc hạn): `python -m uv run --directory api python -m app.worker.main [--once] [--now 2026-11-25T08:00:00+07:00]`
 - Web: `npm --prefix web run dev` · `npm --prefix web run build` · `npm --prefix web run lint`
+- E2E web (Playwright, cần stack chạy sẵn ở `http://localhost:8088` và DB đã seed): `npm --prefix web run test:e2e`. API phải chạy với `AI_EXTERNAL_ENABLED=false` (mỗi lô dựng 3 chứng từ AI, hạn mức 30 lượt/giờ/user sẽ chặn các test sau); project `desktop` (1280×800) và `mobile` (Pixel 7, riêng `driver`/`track`)
 
 ## Quy ước riêng của repo
 
