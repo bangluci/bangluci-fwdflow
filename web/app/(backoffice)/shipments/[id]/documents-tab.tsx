@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ApiError, apiFetch } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import { FALLBACK_PROVIDER_LABEL, useAiStatus } from "@/lib/use-ai-status";
 import { DOC_TYPE_LABEL } from "@/lib/shipment-labels";
 
 export type DocumentRow = {
@@ -35,6 +36,7 @@ const size = (bytes: number) => (bytes >= 1_048_576 ? `${(bytes / 1_048_576).toF
 
 function UploadDialog({ shipmentId, replacing, existing, onClose }: { shipmentId: number; replacing?: DocumentRow; existing: DocumentRow[]; onClose: () => void }) {
   const queryClient = useQueryClient();
+  const providerLabel = useAiStatus().data?.provider_label ?? FALLBACK_PROVIDER_LABEL;
   const [docType, setDocType] = useState(replacing?.doc_type ?? "INVOICE");
   const [file, setFile] = useState<File | null>(null);
   const done = async () => {
@@ -72,7 +74,7 @@ function UploadDialog({ shipmentId, replacing, existing, onClose }: { shipmentId
               </Select>
             </Field>
           )}
-          <Field label="File" htmlFor="u-file" required hint={AI_TYPES.includes(docType) ? "Chứng từ MBL/HBL/Invoice/Packing list sẽ được gửi tới dịch vụ AI Anthropic (Mỹ) để đọc; chỉ dùng dữ liệu mô phỏng khi demo. Kết quả nằm chờ người duyệt." : undefined}>
+          <Field label="File" htmlFor="u-file" required hint={AI_TYPES.includes(docType) ? "Chứng từ MBL/HBL/Invoice/Packing list sẽ được gửi tới " + providerLabel + " để đọc; chỉ dùng dữ liệu mô phỏng khi demo. Kết quả nằm chờ người duyệt." : undefined}>
             <Input id="u-file" type="file" accept="application/pdf,image/jpeg,image/png" onChange={(e) => { setFile(e.target.files?.[0] ?? null); send.reset(); }} />
           </Field>
           {sameType && current ? (

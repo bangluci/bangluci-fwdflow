@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { ApiError, apiFetch } from "@/lib/api";
 import { formatHsCode, type HsSuggestItem, type HsSuggestResult } from "@/lib/hs-code";
+import { FALLBACK_PROVIDER_LABEL, useAiStatus } from "@/lib/use-ai-status";
 
 const ERROR_TEXT: Record<string, string> = {
   RATE_LIMITED: "Bạn đã dùng hết lượt, thử lại sau",
@@ -38,6 +39,7 @@ export function HsSuggest({ description, onPick }: { description: string; onPick
   const suggest = useMutation({
     mutationFn: () => apiFetch<HsSuggestResult>("/api/hs/suggest", { method: "POST", json: { description: description.trim() } }),
   });
+  const providerLabel = useAiStatus().data?.provider_label ?? FALLBACK_PROVIDER_LABEL;
   const result = suggest.data;
   const error = suggest.error;
   const errorMessage = error instanceof ApiError ? (ERROR_TEXT[error.code] ?? error.message) : error?.message;
@@ -46,7 +48,7 @@ export function HsSuggest({ description, onPick }: { description: string; onPick
       <Button type="button" size="sm" variant="outline" disabled={!description.trim() || suggest.isPending} onClick={() => suggest.mutate()}>
         <Sparkles />{suggest.isPending ? "Đang gợi ý…" : "Gợi ý mã HS"}
       </Button>
-      <p className="text-xs text-muted-foreground">Mô tả hàng sẽ được gửi tới Claude API (Anthropic, Mỹ)</p>
+      <p className="text-xs text-muted-foreground">Mô tả hàng sẽ được gửi tới {providerLabel}</p>
       {errorMessage && <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-[13px] text-danger-ink">{errorMessage}</p>}
       {result?.degraded && <p role="status" className="rounded-md border border-warning/40 bg-warning-soft px-3 py-2 text-[13px] text-warning-ink">Tìm kiếm rút gọn: chưa dùng được mô hình ngữ nghĩa, kết quả chỉ dựa trên từ khoá.</p>}
       {result?.status === "INSUFFICIENT" && (

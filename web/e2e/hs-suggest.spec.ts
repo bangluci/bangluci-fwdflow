@@ -31,7 +31,7 @@ async function openItemDialog(page: Page, description = "Máy tính xách tay 14
 test("gợi ý hiện mã dạng 8471.30.20, giải thích, hạng, điểm RRF, cosine và nhãn 'cần xem kỹ'", async ({ page }, testInfo) => {
   await mockSuggest(page, suggestion());
   await openItemDialog(page);
-  await expect(page.getByText("Mô tả hàng sẽ được gửi tới Claude API (Anthropic, Mỹ)")).toBeVisible();
+  await expect(page.getByText(/Mô tả hàng sẽ được gửi tới .+\(.+, Mỹ\)/)).toBeVisible(); // tên dịch vụ lấy từ /api/ai/status
   await page.getByRole("button", { name: "Gợi ý mã HS" }).click();
   const list = page.getByRole("list", { name: "Mã HS gợi ý" });
   await expect(list.getByText("8471.30.20")).toBeVisible();

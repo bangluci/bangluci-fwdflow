@@ -105,14 +105,19 @@ def _raise_recorded(error: dict) -> None:
     raise cls(error["status"], error["type"], error["message"])
 
 
-def _read_fixture(directory: Path, key: str) -> BetaMessage:
+def read_fixture_body(directory: Path, key: str) -> dict:
+    """Thân fixture đã ghi (dùng chung cho mọi nhà cung cấp); lỗi đã ghi được ném lại đúng loại."""
     path = directory / f"{key}.json"
     if not path.is_file():
         raise PermanentAIError(0, "replay_missing", f"Thiếu fixture LLM {key}")
     body = json.loads(path.read_text(encoding="utf-8"))
     if body.get("error"):
         _raise_recorded(body["error"])
-    return BetaMessage.model_validate(body["response"])
+    return body
+
+
+def _read_fixture(directory: Path, key: str) -> BetaMessage:
+    return BetaMessage.model_validate(read_fixture_body(directory, key)["response"])
 
 
 def _classify(exc: Exception) -> AIError:
@@ -177,7 +182,12 @@ def _parse(schema_model: type[BaseModel], stop_reason: str | None, text: str) ->
 
 def call_structured(feature: str, system: str, content_blocks: list[dict], schema_model: type[BaseModel],
                     max_tokens: int) -> StructuredResult:
+    """Điểm gọi LLM duy nhất của cả 3 tính năng AI; nhà cung cấp chọn bằng `LLM_PROVIDER` (anthropic | gemini)."""
     settings = get_settings()
+    if settings.llm_provider == "gemini":
+        from app.ai import gemini  # nạp muộn: gemini.py dùng lại các hàm của module này
+
+        return gemini.call_structured(feature, system, content_blocks, schema_model, max_tokens)
     schema = strict_schema(schema_model)
     model = getattr(settings, f"claude_model_{feature}")
     effort = settings.claude_effort_extraction if feature == "extraction" else DEFAULT_EFFORT

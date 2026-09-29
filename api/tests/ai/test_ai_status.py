@@ -10,13 +10,22 @@ def test_status_reports_budget_exceeded_for_admin(client, login_as, make_extract
     monkeypatch.setattr(get_settings(), "ai_daily_token_budget", 1000)
     make_extraction(status="REVIEW", usage=USAGE, processed_at=datetime.now(UTC))
     data = client.get("/api/ai/status").json()["data"]
-    assert data == {"enabled": False, "reason": "DAILY_BUDGET_EXCEEDED", "tokens_today": 1000, "budget": 1000}
+    assert data == {"enabled": False, "reason": "DAILY_BUDGET_EXCEEDED", "tokens_today": 1000, "budget": 1000,
+                    "provider": "anthropic", "provider_label": "Claude API (Anthropic, Mỹ)"}
 
 
 def test_status_hides_token_numbers_for_docs(client, login_as):
     login_as("DOCS")
     data = client.get("/api/ai/status").json()["data"]
-    assert data == {"enabled": True, "reason": None, "tokens_today": None, "budget": None}
+    assert data == {"enabled": True, "reason": None, "tokens_today": None, "budget": None,
+                    "provider": "anthropic", "provider_label": "Claude API (Anthropic, Mỹ)"}
+
+
+def test_status_names_the_gemini_provider(client, login_as, monkeypatch):
+    login_as("DOCS")
+    monkeypatch.setattr(get_settings(), "llm_provider", "gemini")
+    data = client.get("/api/ai/status").json()["data"]
+    assert (data["provider"], data["provider_label"]) == ("gemini", "Gemini API (Google, Mỹ)")
 
 
 def test_status_reports_disabled_by_config(client, login_as, monkeypatch):

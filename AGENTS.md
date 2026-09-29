@@ -35,5 +35,5 @@
 - Bảng `*_events` là append-only (trigger `forbid_mutation`); sửa sai bằng event `RETIME` / `VOID`.
 - Đổi trạng thái container / lệnh xe / đơn giao phải `lock_shipment()` trước rồi mới ghi event + `try_auto_advance()` trong cùng transaction.
 - Mọi thao tác ghi gọi `record_audit()` cùng transaction; chỉ ghi cột trong `AUDIT_FIELDS`.
-- Gọi Claude chỉ qua `app/ai/claude.py`. Test luôn chạy `LLM_MODE=replay` (không tốn tiền, không cần key). Chưa có `ANTHROPIC_API_KEY` thì AI chỉ chạy được ở chế độ replay.
+- Gọi LLM chỉ qua `call_structured` trong `app/ai/claude.py`; nhà cung cấp chọn bằng `LLM_PROVIDER` (`anthropic` mặc định, hoặc `gemini` cho gói miễn phí của Google, cài đặt ở `app/ai/gemini.py`). Test luôn chạy `LLM_MODE=replay` (không tốn tiền, không cần key). Chưa có key (`ANTHROPIC_API_KEY` hoặc `GEMINI_API_KEY`) thì AI chỉ chạy được ở chế độ replay.
 - Tiền lưu BIGINT + `currency`; ngày nghiệp vụ theo `Asia/Ho_Chi_Minh`.

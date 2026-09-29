@@ -35,6 +35,18 @@ Dữ liệu là mô phỏng. Mọi tài khoản dùng chung mật khẩu `SEED_P
 - `customer@fwdflow.local` (khách hàng số 1)
 - `0900000006` (tài xế, đăng nhập bằng SĐT)
 
+## LLM: Claude hoặc Gemini (miễn phí)
+
+Mặc định gọi Claude (`LLM_PROVIDER=anthropic`, cần `ANTHROPIC_API_KEY`, trả phí). Không có tiền thì dùng gói miễn phí của Google: lấy key ở https://aistudio.google.com/apikey, rồi đặt trong `.env`:
+
+```
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=<key của bạn>
+LLM_MODE=live
+```
+
+Lưu ý: gói miễn phí giới hạn số lượt và Google có thể dùng dữ liệu gửi lên để cải thiện sản phẩm, nên chỉ dùng chứng từ mô phỏng. Chưa thử với key Gemini thật (test chạy bằng máy chủ giả). Chế độ `LLM_MODE=record` ghi lại kết quả thật để sau đó demo bằng `replay` không tốn lượt.
+
 ## AI #2 (gợi ý mã HS): dữ liệu và model
 
 Chạy được không cần các bước này (gợi ý rút gọn, chỉ full-text). Muốn đủ tính năng, cài một lần (cần khoảng 3 GB trống):

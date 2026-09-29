@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     ai_external_enabled: bool = True
     anthropic_api_key: str = ""
     llm_mode: Literal["live", "record", "replay"] = "replay"
+    # Nhà cung cấp LLM: anthropic (Claude, trả phí) hoặc gemini (Google AI Studio, có gói miễn phí)
+    llm_provider: Literal["anthropic", "gemini"] = "anthropic"
+    gemini_api_key: str = ""
+    gemini_model_extraction: str = "gemini-2.5-flash"
+    gemini_model_hs: str = "gemini-2.5-flash"
+    gemini_model_nlq: str = "gemini-2.5-flash"
     claude_model_extraction: str = "claude-opus-5"
     claude_model_hs: str = "claude-opus-5"
     claude_model_nlq: str = "claude-opus-5"
