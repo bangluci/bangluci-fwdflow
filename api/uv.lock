@@ -654,6 +654,7 @@ dependencies = [
     { name = "segno" },
     { name = "sqlalchemy" },
     { name = "sqlglot" },
+    { name = "tzdata" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -689,6 +690,7 @@ requires-dist = [
     { name = "segno", specifier = ">=1.6" },
     { name = "sqlalchemy", specifier = ">=2.0.30" },
     { name = "sqlglot", specifier = ">=25.0" },
+    { name = "tzdata", specifier = ">=2026.4" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 

@@ -20,6 +20,8 @@ log = logging.getLogger("fwdflow.ai")
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 TIMEOUT_SECONDS = 180.0
 DEFAULT_EFFORT = "high"
+# Bỏ khỏi schema gửi đi: `pattern` của Decimal dùng lookahead mà structured output không nhận; Pydantic kiểm lại sau.
+UNSUPPORTED_KEYWORDS = frozenset({"title", "default", "pattern"})
 
 
 class AIError(Exception):
@@ -69,7 +71,7 @@ def strict_schema(model: type[BaseModel]) -> dict:
             return node
         if "$ref" in node:
             return walk(defs[node["$ref"].rsplit("/", 1)[-1]])
-        out = {key: walk(value) for key, value in node.items() if key not in ("title", "default")}
+        out = {key: walk(value) for key, value in node.items() if key not in UNSUPPORTED_KEYWORDS}
         if out.get("type") == "object" or "properties" in out:
             out["additionalProperties"] = False
             out["required"] = list(out.get("properties", {}))

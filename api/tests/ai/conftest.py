@@ -3,6 +3,7 @@ import httpx2
 import pytest
 
 from app.ai import claude
+from app.ai.guard import reset_rate_limits
 from app.config import get_settings
 
 
@@ -52,3 +53,8 @@ def replay_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(get_settings(), "llm_mode", "replay")
     monkeypatch.setattr(get_settings(), "llm_fixture_dir", tmp_path / "llm")
     return tmp_path / "llm"
+
+
+@pytest.fixture(autouse=True)
+def fresh_rate_limits():
+    reset_rate_limits()
