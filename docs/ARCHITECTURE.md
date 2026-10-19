@@ -6,6 +6,7 @@ Tài liệu sống — cập nhật tại chỗ khi kiến trúc đổi. Thiết
 
 - Cổng vào duy nhất là Caddy: `/api/*` → FastAPI, còn lại → Next.js; đặt header bảo mật + CSP — [Caddyfile](../Caddyfile) `current`
 - Hạ tầng dev: Postgres 17 + pgvector, Mailpit, Caddy, chỉ bind 127.0.0.1 — [docker-compose.yml](../docker-compose.yml) `current`
+- Schema do 12 migration Alembic quản lý, mỗi migration chỉ chạy SQL thuần; bản `.up.sql` / `.down.sql` để đọc được sinh tự động vào `api/migrations/sql/` (mật khẩu role `nlq_*` thay bằng chỗ giữ chỗ), có test giữ đồng bộ với migration — [export_sql_migrations.py](../api/scripts/export_sql_migrations.py) `current`, [migrations/sql/](../api/migrations/sql/) `current`, [test_export_sql_migrations.py](../api/tests/scripts/test_export_sql_migrations.py) `current`
 - API FastAPI, mọi response theo envelope `{success, data, error, meta}` — [envelope.py](../api/app/envelope.py) `current`, [main.py](../api/app/main.py) `current`
 - `APP_TODAY` cố định ngày tham chiếu qua GUC `app.as_of` trong mọi transaction — [db.py](../api/app/db.py#L13-L18) `current`
 - Bảng event / audit append-only bằng trigger `forbid_mutation` — [0001_core.py](../api/migrations/versions/0001_core.py) `current`, [0003_shipments.py](../api/migrations/versions/0003_shipments.py) `current`

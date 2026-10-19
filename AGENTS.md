@@ -21,6 +21,7 @@
 - Máy dev không có `uv` trên PATH → dùng `python -m uv` thay cho `uv`.
 - Hạ tầng dev: `docker compose up -d db mailpit caddy` (DB `127.0.0.1:15433`, Mailpit UI `127.0.0.1:8025`, web qua Caddy `http://localhost:8088`).
 - Migrate: `python -m uv run --directory api alembic upgrade head`
+- Xuất migration ra SQL thuần để đọc: `python -m uv run --directory api python -m scripts.export_sql_migrations` → `api/migrations/sql/NNNN_ten.up.sql` / `.down.sql` (sinh tự động, không sửa tay, không chạy trực tiếp; thêm hoặc sửa migration thì chạy lại, test `tests/scripts/test_export_sql_migrations.py` sẽ đỏ nếu quên)
 - Test API: `python -m uv run --directory api pytest -q` (Postgres thật, DB `fwdflow_test`, không mock DB)
 - Lint API: `python -m uv run --directory api ruff check .`
 - Chạy API: `python -m uv run --directory api uvicorn app.main:app --port 8000`
